@@ -1627,8 +1627,7 @@ async function loadTournamentsTab(silent = false) {
 async function eventIsGenuinelyLive(event) {
   try {
     const detail = await getEventDetails(event.id);
-    if (detail.state !== "inProgress") return false;
-    return pickStreams(detail.streams).length > 0 || isEwcLeague(event.league);
+    return detail.state === "inProgress";
   } catch {
     return false;
   }
