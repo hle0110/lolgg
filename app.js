@@ -3420,7 +3420,7 @@ async function renderTeamPage(teamCode) {
   window.scrollTo(0, 0);
 
   try {
-    await getSchedule([]);
+    await getSchedule(curatedLeagues.map((l) => l.id));
   } catch {
   }
   const fallbackTeam = (() => {
