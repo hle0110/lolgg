@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy | lolgg</title>
+<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="tz-picker">
+    <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
+      <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
+    </div>
+  </div>
+  <header>
+    <h1>Privacy Policy</h1>
+    <p><a href="index.html" class="brand-link">lolgg</a></p>
+  </header>
+
+  <main class="legal-page">
+    <p><em>Last updated: July 17, 2026</em></p>
+    <p>Short version: there's no login, no tracking, and nowhere for your data to even go. Long version below, for the curious.</p>
+
+    <h2>No backend, no accounts</h2>
+    <p>lolgg is fully static: no server, no database, no login. Your browser calls a few public APIs and CDNs directly to show schedule, score, live-stats, and stream data. No Riot ID, name, or personal identifier is ever requested.</p>
+
+    <h2>What's stored</h2>
+    <p>Nothing server-side, because there's no server. Your browser saves a few small preferences locally on your own device (via localStorage): your timezone choice and any teams you've favorited. If you install lolgg as an app, your device also caches the app's own files locally so it can open offline. If hosted on GitHub Pages or similar, that host may keep standard access logs per its own policy; this site's operator doesn't see that data separately.</p>
+
+    <h2>Third parties this site talks to</h2>
+    <ul>
+      <li><strong>lolesports.com</strong> (esports-api.lolesports.com, feed.lolesports.com) &mdash; schedule, live match, standings, and live-stats data.</li>
+      <li><strong>Riot Data Dragon</strong> &mdash; champion and item icons.</li>
+      <li><strong>Community Dragon</strong> &mdash; dragon/baron HUD icons.</li>
+      <li><strong>Twitch and YouTube</strong> &mdash; official stream/VOD embeds, loaded only once you click play. Each platform's own cookies and privacy policy apply to that embedded player.</li>
+      <li><strong>decapi.me</strong> &mdash; public Twitch uptime lookup, used to check if an official channel or community co-streamer is actually live.</li>
+      <li><strong>Liquipedia</strong> &mdash; used as a fallback source for a tournament's bracket when Riot's own data isn't published yet.</li>
+      <li><strong>Static hosting provider</strong> (e.g. GitHub Pages) &mdash; serves the site, may log basic request metadata.</li>
+    </ul>
+    <p>Full list of exactly which endpoints and why: <a href="credits.html">Credits and APIs Used</a>.</p>
+
+    <h2>Cookies and tracking</h2>
+    <p>This site itself sets no cookies and runs no analytics or ad trackers. An embedded stream player may set its own, controlled by Twitch/YouTube.</p>
+
+    <h2>Changes</h2>
+    <p>This policy may be updated as the site evolves. Continuing to use the site after a change means you accept it.</p>
+
+    <h2>Contact</h2>
+    <p>Questions: <a href="mailto:despacitoog9@gmail.com">despacitoog9@gmail.com</a></p>
+
+    <p><a href="index.html">Back to lolgg</a></p>
+  </main>
+
+  <footer>
+    <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
+    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="mailto:despacitoog9@gmail.com">Contact Us</a></p>
+    <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
+  </footer>
+  <script>
+  (function () {
+    var KEY = "lolgg_theme";
+    function getStored() { try { return localStorage.getItem(KEY) || "auto"; } catch (e) { return "auto"; } }
+    function setStored(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+    var buttons = document.querySelectorAll(".theme-btn");
+    function sync(theme) {
+      buttons.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-theme-choice") === theme); });
+    }
+    sync(getStored());
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var theme = b.getAttribute("data-theme-choice");
+        document.documentElement.setAttribute("data-theme", theme);
+        setStored(theme);
+        sync(theme);
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

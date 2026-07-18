@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terms of Service | lolgg</title>
+<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="tz-picker">
+    <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
+      <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
+    </div>
+  </div>
+  <header>
+    <h1>Terms of Service</h1>
+    <p><a href="index.html" class="brand-link">lolgg</a></p>
+  </header>
+
+  <main class="legal-page">
+    <p><em>Last updated: July 17, 2026</em></p>
+    <p>Short version: free fan site, be cool, don't sue us.</p>
+
+    <h2>What this is</h2>
+    <p>A free, hobby-built site for LoL esports schedules, scores, and official streams. Only covers matches and tournaments from 2023 onward. Not guaranteed to always be online or accurate.</p>
+
+    <h2>Not affiliated with Riot Games</h2>
+    <p>League of Legends and related names are trademarks of Riot Games, Inc.</p>
+
+    <h2>Data & streams</h2>
+    <p>Schedule and score data can be delayed or wrong. "Recent Form" and "AI Prediction" are rough estimates, not real stats. When a tournament's official bracket isn't published yet, a fallback bracket is pulled from Liquipedia and may not be fully accurate. Every stream and VOD is an official Twitch or YouTube embed &mdash; nothing rehosted or proxied.</p>
+
+    <h2>Fair use, no accounts, no warranty</h2>
+    <p>Don't use this site in a way that breaks Riot's, Twitch's, or YouTube's terms. Nothing here requires an account or payment &mdash; favoriting teams and installing the app just save small preferences on your own device. Provided as-is, with no warranties.</p>
+
+    <h2>Changes & contact</h2>
+    <p>These terms may change at any time. Questions: <a href="mailto:despacitoog9@gmail.com">despacitoog9@gmail.com</a></p>
+
+    <p><a href="index.html">Back to lolgg</a></p>
+  </main>
+
+  <footer>
+    <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
+    <p class="footer-links"><a href="privacy.html">Privacy Policy</a> &middot; <a href="mailto:despacitoog9@gmail.com">Contact Us</a></p>
+    <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
+  </footer>
+  <script>
+  (function () {
+    var KEY = "lolgg_theme";
+    function getStored() { try { return localStorage.getItem(KEY) || "auto"; } catch (e) { return "auto"; } }
+    function setStored(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+    var buttons = document.querySelectorAll(".theme-btn");
+    function sync(theme) {
+      buttons.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-theme-choice") === theme); });
+    }
+    sync(getStored());
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var theme = b.getAttribute("data-theme-choice");
+        document.documentElement.setAttribute("data-theme", theme);
+        setStored(theme);
+        sync(theme);
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

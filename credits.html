@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Credits and APIs Used | lolgg</title>
+<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="tz-picker">
+    <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
+      <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
+    </div>
+  </div>
+  <header>
+    <h1>Credits and APIs Used</h1>
+    <p><a href="index.html" class="brand-link">lolgg</a></p>
+  </header>
+
+  <main class="legal-page">
+    <h2>Data</h2>
+    <p>Schedule, scores, standings, and live in-game stats all come from lolesports.com's public API &mdash; the same data behind the official LoL Esports site. Only matches and tournaments from 2023 onward are loaded, to keep the site fast.</p>
+    <p>When a tournament's official bracket isn't published yet, this site pulls a fallback bracket from Liquipedia so the page isn't left blank.</p>
+
+    <h2>Icons</h2>
+    <p>Riot's Data Dragon for champion and item icons; Community Dragon for objective icons.</p>
+
+    <h2>Streams</h2>
+    <p>Official Twitch and YouTube embeds only, loaded once you click play. decapi.me checks whether an official channel or a co-streamer is actually live before showing their embed.</p>
+
+    <h2>Not shown here</h2>
+    <p>Prize pools, full rosters, drafts, and deep player stats &mdash; no reliable public source for a static site, so those pages link out to Liquipedia instead.</p>
+
+    <p><a href="index.html">Back to lolgg</a></p>
+  </main>
+
+  <footer>
+    <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
+    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="mailto:despacitoog9@gmail.com">Contact Us</a></p>
+    <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
+  </footer>
+  <script>
+  (function () {
+    var KEY = "lolgg_theme";
+    function getStored() { try { return localStorage.getItem(KEY) || "auto"; } catch (e) { return "auto"; } }
+    function setStored(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+    var buttons = document.querySelectorAll(".theme-btn");
+    function sync(theme) {
+      buttons.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-theme-choice") === theme); });
+    }
+    sync(getStored());
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var theme = b.getAttribute("data-theme-choice");
+        document.documentElement.setAttribute("data-theme", theme);
+        setStored(theme);
+        sync(theme);
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

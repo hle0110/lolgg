@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>lolgg: LoL Esports Scores, Schedule and Streams</title>
+<meta name="theme-color" content="#0a1428" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
+<link rel="stylesheet" href="style.css?v=20260717z7" />
+<link rel="stylesheet" href="esports.css?v=20260717z17" />
+</head>
+<body>
+  <div id="tz-picker" class="tz-picker">
+    <div class="site-search" id="site-search">
+      <input type="search" id="site-search-input" class="site-search-input" placeholder="Search teams or leagues…" autocomplete="off" />
+      <div id="site-search-results" class="site-search-results"></div>
+    </div>
+    <select id="tz-select" class="tz-select"></select>
+    <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
+      <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
+    </div>
+  </div>
+  <div id="top-clock" class="top-clock">
+    <span id="top-clock-date" class="top-clock-date"></span>
+    <span id="top-clock-time" class="top-clock-time"></span>
+  </div>
+  <div id="event-toast-container" class="event-toast-container"></div>
+  <header>
+    <h1><a href="#/" class="brand-link">lolgg</a></h1>
+    <p>Everything happening in LoL esports, in one place.</p>
+    <nav class="site-nav" id="tabs">
+      <div class="nav-dropdown" data-nav-group="matches">
+        <button class="nav-dropdown-btn" type="button" aria-haspopup="true" aria-expanded="false">Matches <span class="nav-caret">&#9662;</span></button>
+        <div class="nav-dropdown-menu">
+          <button class="nav-dropdown-item" data-tab="live">Ongoing</button>
+          <button class="nav-dropdown-item" data-tab="unstarted">Upcoming</button>
+          <button class="nav-dropdown-item" data-tab="completed">Completed</button>
+        </div>
+      </div>
+      <div class="nav-dropdown" data-nav-group="tournaments">
+        <button class="nav-dropdown-btn" type="button" aria-haspopup="true" aria-expanded="false">Tournaments <span class="nav-caret">&#9662;</span></button>
+        <div class="nav-dropdown-menu">
+          <button class="nav-dropdown-item" data-tab="tournaments" data-status="ongoing">Ongoing</button>
+          <button class="nav-dropdown-item" data-tab="tournaments" data-status="upcoming">Upcoming</button>
+          <button class="nav-dropdown-item" data-tab="tournaments" data-status="completed">Completed</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <div id="home-view">
+    <div id="tournament-banner" class="tournament-banner"></div>
+    <div id="league-filter" class="league-filter"></div>
+
+    <main id="esports-main">
+      <section id="tab-content"></section>
+    </main>
+  </div>
+
+  <div id="match-view" class="hidden">
+    <main id="match-main" class="match-page"></main>
+  </div>
+
+  <div id="tournament-view" class="hidden">
+    <main id="tournament-main" class="match-page"></main>
+  </div>
+
+  <div id="team-view" class="hidden">
+    <main id="team-main" class="match-page"></main>
+  </div>
+
+  <footer>
+    <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
+    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="mailto:despacitoog9@gmail.com">Contact Us</a></p>
+    <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
+  </footer>
+
+  <script src="app.js?v=20260717z23"></script>
+  <script>
+    // Registered here (rather than inside app.js) since it needs to run even on the rare path where
+    // app.js itself fails to load/execute, and keeps the "am I in a service-worker-capable context"
+    // check right next to the registration call. No-ops silently if unsupported (e.g. older browsers,
+    // or file:// testing) rather than erroring the page.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
