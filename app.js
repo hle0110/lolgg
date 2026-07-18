@@ -319,7 +319,8 @@ function effectiveLeagueIds() {
 }
 
 function liveTabLeagueIds() {
-  return selectedLeagueIds.size > 0 ? [...selectedLeagueIds] : [];
+  if (selectedLeagueIds.size > 0) return [...selectedLeagueIds];
+  return curatedLeagues.map((l) => l.id);
 }
 function findLeagueIdByName(name) {
   if (!name) return null;
