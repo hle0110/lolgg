@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Contact Us | lolgg</title>
+<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="tz-picker">
+    <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
+      <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
+      <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
+      <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
+    </div>
+  </div>
+  <header>
+    <h1>Contact Us</h1>
+    <p><a href="index.html" class="brand-link">lolgg</a></p>
+  </header>
+
+  <main class="legal-page">
+    <p>Questions, bug reports, or feedback? Send a message below.</p>
+
+    <form id="contact-form" class="contact-form">
+      <input type="hidden" name="access_key" value="33833a45-828e-4eef-b4d1-b73dabf6387b" />
+      <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off" />
+      <input type="hidden" name="subject" value="New message from lolgg contact form" />
+
+      <label class="contact-label" for="contact-name">Name</label>
+      <input class="contact-input" type="text" id="contact-name" name="name" required />
+
+      <label class="contact-label" for="contact-email">Email</label>
+      <input class="contact-input" type="email" id="contact-email" name="email" required />
+
+      <label class="contact-label" for="contact-message">Message</label>
+      <textarea class="contact-textarea" id="contact-message" name="message" rows="6" required></textarea>
+
+      <button class="contact-submit" type="submit">Send Message</button>
+      <p id="contact-status" class="contact-status"></p>
+    </form>
+
+    <p><a href="index.html">Back to lolgg</a></p>
+  </main>
+
+  <footer>
+    <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
+    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a></p>
+    <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
+  </footer>
+  <script>
+  (function () {
+    var KEY = "lolgg_theme";
+    function getStored() { try { return localStorage.getItem(KEY) || "auto"; } catch (e) { return "auto"; } }
+    function setStored(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+    var buttons = document.querySelectorAll(".theme-btn");
+    function sync(theme) {
+      buttons.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-theme-choice") === theme); });
+    }
+    sync(getStored());
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var theme = b.getAttribute("data-theme-choice");
+        document.documentElement.setAttribute("data-theme", theme);
+        setStored(theme);
+        sync(theme);
+      });
+    });
+  })();
+  </script>
+  <script>
+  (function () {
+    var form = document.getElementById("contact-form");
+    var status = document.getElementById("contact-status");
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      status.textContent = "Sending…";
+      status.className = "contact-status";
+      var formData = new FormData(form);
+      var payload = {};
+      formData.forEach(function (value, key) { payload[key] = value; });
+      fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.success) {
+            status.textContent = "Message sent. Thanks for reaching out!";
+            status.className = "contact-status success";
+            form.reset();
+          } else {
+            status.textContent = "Something went wrong. Please try again later.";
+            status.className = "contact-status error";
+          }
+        })
+        .catch(function () {
+          status.textContent = "Something went wrong. Please try again later.";
+          status.className = "contact-status error";
+        });
+    });
+  })();
+  </script>
+</body>
+</html>

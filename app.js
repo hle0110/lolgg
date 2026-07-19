@@ -1110,20 +1110,13 @@ const LOCAL_TZ = (() => {
 })();
 
 const TIMEZONE_OPTIONS = [
-  { value: "auto", label: "Auto (this device)" },
+  { value: "auto", label: "Auto" },
   { value: "America/Los_Angeles", label: "US Pacific" },
-  { value: "America/Denver", label: "US Mountain" },
-  { value: "America/Chicago", label: "US Central" },
   { value: "America/New_York", label: "US Eastern" },
-  { value: "America/Sao_Paulo", label: "Brazil" },
   { value: "Europe/London", label: "UK" },
   { value: "Europe/Paris", label: "Central Europe" },
-  { value: "Europe/Moscow", label: "Moscow" },
-  { value: "Asia/Kolkata", label: "India" },
-  { value: "Asia/Bangkok", label: "Southeast Asia" },
   { value: "Asia/Shanghai", label: "China" },
   { value: "Asia/Seoul", label: "Korea" },
-  { value: "Australia/Sydney", label: "Australia East" },
 ];
 function getStoredTimeZone() {
   try {
@@ -1496,32 +1489,6 @@ async function loadLeagueFilter() {
       loadActiveTab();
     });
   });
-}
-async function loadTournamentBanner() {
-  const bannerEl = document.getElementById("tournament-banner");
-  if (!bannerEl) return;
-  try {
-    const results = await Promise.all(
-      curatedLeagues.map(async (league) => {
-        const tournaments = await getTournamentsForLeague(league.id);
-        const active = findActiveTournament(tournaments, league);
-        return active ? { league, tournament: active } : null;
-      })
-    );
-    const live = results.filter(Boolean);
-    if (!live.length) {
-      bannerEl.innerHTML = "";
-      return;
-    }
-    bannerEl.innerHTML = live
-      .map(
-        ({ league, tournament }) =>
-          `<a class="tournament-pill" href="#/tournament/${encodeURIComponent(league.id)}/${encodeURIComponent(tournament.id)}">🔴 <strong>${league.name}</strong> is ongoing <span class="hint">(${resolvedTournamentDateRangeLabel(league, tournament)})</span></a>`
-      )
-      .join("");
-  } catch {
-    bannerEl.innerHTML = "";
-  }
 }
 let tournamentsStatusFilter = "ongoing";
 function pickTournamentByStatus(tournaments, league, status) {
@@ -3622,7 +3589,6 @@ async function init() {
   await loadLeagueFilter();
   await getSchedule(effectiveLeagueIds());
   route();
-  loadTournamentBanner();
 
   setInterval(async () => {
     await getSchedule(effectiveLeagueIds());
@@ -3630,6 +3596,5 @@ async function init() {
 
     if (r.view === "home") loadActiveTab(true);
   }, 20 * 1000);
-  setInterval(loadTournamentBanner, 30 * 60 * 1000);
 }
 init();
