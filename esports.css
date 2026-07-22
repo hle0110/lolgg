@@ -3,6 +3,41 @@
   color: var(--text);
   font-weight: 600;
 }
+.offline-banner,
+.fatal-error-banner {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+}
+.offline-banner {
+  background: var(--panel-alt);
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.fatal-error-banner {
+  background: rgba(224, 86, 86, 0.14);
+  color: var(--red-team);
+  border-bottom: 1px solid var(--red-team);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fatal-error-reload {
+  background: var(--red-team);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.fatal-error-reload:hover {
+  opacity: 0.9;
+}
 
 @media (max-width: 480px) {
   #esports-main,
@@ -491,6 +526,43 @@ a.team-card:hover {
   font-size: 14px;
   margin: 20px 0 8px;
 }
+.view-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 0;
+}
+.compact-toggle-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.compact-toggle-btn.active {
+  background: var(--panel-hover);
+  color: var(--text);
+  border-color: var(--gold);
+}
+.compact-view .schedule-row {
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+.compact-view .day-heading {
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+.compact-view .league-name {
+  font-size: 11px;
+  min-width: 90px;
+  flex: 1 1 90px;
+}
+.compact-view .team-name {
+  font-size: 13px;
+}
 .schedule-row {
   display: flex;
   align-items: center;
@@ -654,6 +726,35 @@ a.team-card:hover {
   margin-bottom: 16px;
 }
 .back-link:hover { text-decoration: underline; }
+.page-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.page-top-row .back-link {
+  margin-bottom: 0;
+}
+.copy-link-btn,
+.add-to-calendar-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.copy-link-btn:hover,
+.add-to-calendar-btn:hover {
+  background: var(--panel-hover);
+}
+.add-to-calendar-btn {
+  display: block;
+  margin: 10px 0;
+}
 .modal-header {
   display: flex;
   align-items: center;

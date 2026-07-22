@@ -10,14 +10,14 @@
 <link rel="icon" type="image/png" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
-<link rel="stylesheet" href="style.css?v=20260718z8" />
-<link rel="stylesheet" href="esports.css?v=20260718z18" />
+<link rel="stylesheet" href="style.css?v=20260721z9" />
+<link rel="stylesheet" href="esports.css?v=20260721z19" />
 </head>
 <body>
   <div id="tz-picker" class="tz-picker">
     <div class="site-search" id="site-search">
-      <input type="search" id="site-search-input" class="site-search-input" placeholder="Search teams or leagues…" autocomplete="off" />
-      <div id="site-search-results" class="site-search-results"></div>
+      <input type="search" id="site-search-input" class="site-search-input" placeholder="Search teams or leagues…" aria-label="Search teams or leagues" autocomplete="off" />
+      <div id="site-search-results" class="site-search-results" role="listbox" aria-label="Search results"></div>
     </div>
     <div id="theme-toggle" class="theme-toggle" role="group" aria-label="Theme">
       <button type="button" class="theme-btn" data-theme-choice="light">Day</button>
@@ -31,6 +31,8 @@
     <span id="top-clock-time" class="top-clock-time"></span>
   </div>
   <div id="event-toast-container" class="event-toast-container"></div>
+  <div id="offline-banner" class="offline-banner hidden" role="status">You're offline. Live data will resume once you're back online.</div>
+  <div id="fatal-error-banner" class="fatal-error-banner hidden" role="alert"></div>
   <header>
     <h1><a href="#/" class="brand-link">lolgg</a></h1>
     <p>Everything happening in LoL esports, in one place.</p>
@@ -58,6 +60,9 @@
     <div id="league-filter" class="league-filter"></div>
 
     <main id="esports-main">
+      <div class="view-toggle-row">
+        <button type="button" id="compact-view-toggle" class="compact-toggle-btn" aria-pressed="false">☰ Compact</button>
+      </div>
       <section id="tab-content"></section>
     </main>
   </div>
@@ -76,11 +81,11 @@
 
   <footer>
     <p class="footer-copyright">&copy; 2026 lolgg. All rights reserved.</p>
-    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="contact.html">Contact Us</a></p>
+    <p class="footer-links"><a href="terms.html">Terms of Service</a> &middot; <a href="privacy.html">Privacy Policy</a> &middot; <a href="contact.html">Contact Us</a> &middot; <a href="changelog.html">What's New</a></p>
     <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
   </footer>
 
-  <script src="app.js?v=20260718z27"></script>
+  <script src="app.js?v=20260721z28"></script>
   <script>
     // Registered here (rather than inside app.js) since it needs to run even on the rare path where
     // app.js itself fails to load/execute, and keeps the "am I in a service-worker-capable context"

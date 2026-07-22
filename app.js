@@ -1152,7 +1152,9 @@ function setStoredTheme(theme) {
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   document.querySelectorAll(".theme-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.getAttribute("data-theme-choice") === theme);
+    const active = btn.getAttribute("data-theme-choice") === theme;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 function initThemePicker() {
@@ -1269,7 +1271,7 @@ function initSiteSearch() {
     resultsEl.innerHTML = results
       .map(
         (r) =>
-          `<a class="site-search-result" href="${siteSearchResultHref(r)}" data-close-search="1"><span>${r.label}</span><span class="hint">${r.hint}</span></a>`
+          `<a class="site-search-result" role="option" href="${siteSearchResultHref(r)}" data-close-search="1"><span>${r.label}</span><span class="hint">${r.hint}</span></a>`
       )
       .join("");
     resultsEl.classList.add("open");
@@ -1295,6 +1297,95 @@ function initSiteSearch() {
       resultsEl.classList.remove("open");
       input.blur();
     }
+  });
+}
+function icsEscapeText(s) {
+  return String(s || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
+}
+function icsDateStamp(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+}
+function buildMatchIcs(event) {
+  const startTime = event.startTime;
+  const start = new Date(startTime);
+  const end = new Date(start.getTime() + 90 * 60000);
+  const summary = (event.teams || []).map((t) => t.name || t.code).filter(Boolean).join(" vs ") || "LoL Esports Match";
+  const leagueName = event.league && event.league.name ? event.league.name : "";
+  const uid = `lolgg-${event.id}@hle0110.github.io`;
+  const matchUrl = `https://hle0110.github.io/lolgg/#/match/${event.id}`;
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//lolgg//match//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${icsDateStamp(new Date().toISOString())}`,
+    `DTSTART:${icsDateStamp(startTime)}`,
+    `DTEND:${icsDateStamp(end.toISOString())}`,
+    `SUMMARY:${icsEscapeText(summary + (leagueName ? ` (${leagueName})` : ""))}`,
+    `DESCRIPTION:${icsEscapeText(`Watch on lolgg: ${matchUrl}`)}`,
+    `URL:${matchUrl}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return lines.join("\r\n");
+}
+function downloadIcsForEvent(event) {
+  if (!event || !event.startTime) return;
+  const ics = buildMatchIcs(event);
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `lolgg-match-${event.id}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function copyLinkButtonHtml() {
+  return `<button type="button" class="copy-link-btn" data-copy-link="1">🔗 Copy Link</button>`;
+}
+function wireCopyLinkButtons(container) {
+  if (!container) return;
+  container.querySelectorAll(".copy-link-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = window.location.href;
+      let copied = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        }
+      } catch {
+      }
+      if (!copied) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          copied = true;
+        } catch {
+        }
+      }
+      const original = btn.textContent;
+      btn.textContent = copied ? "✓ Copied!" : "Couldn't copy";
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 1500);
+    });
   });
 }
 function localTimeLabel(iso) {
@@ -1454,36 +1545,134 @@ function eventInvolvesFavoriteTeam(event) {
   if (!favorites.length) return false;
   return (event.teams || []).some((t) => t.code && favorites.includes(t.code));
 }
+const NOTIFY_KEY = "lolgg_notify_favorites";
+function getNotifyPreference() {
+  try {
+    return localStorage.getItem(NOTIFY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function setNotifyPreference(on) {
+  try {
+    localStorage.setItem(NOTIFY_KEY, on ? "1" : "0");
+  } catch {
+  }
+}
+function notificationsSupported() {
+  return typeof Notification !== "undefined";
+}
+async function enableFavoriteNotifications() {
+  if (!notificationsSupported()) return false;
+  if (Notification.permission === "granted") {
+    setNotifyPreference(true);
+    return true;
+  }
+  if (Notification.permission === "denied") {
+    setNotifyPreference(false);
+    return false;
+  }
+  let permission;
+  try {
+    permission = await Notification.requestPermission();
+  } catch {
+    permission = "denied";
+  }
+  const granted = permission === "granted";
+  setNotifyPreference(granted);
+  return granted;
+}
+function disableFavoriteNotifications() {
+  setNotifyPreference(false);
+}
+let notifiedLiveEventIds = new Set();
+let favoriteNotifyBaselineSeeded = false;
+function checkFavoriteTeamLiveNotifications() {
+  if (!notificationsSupported() || Notification.permission !== "granted" || !getNotifyPreference()) return;
+  const favorites = getFavoriteTeams();
+  if (!favorites.length) return;
+  const liveFavoriteEvents = scheduleCache.filter((e) => e.state === "inProgress" && eventInvolvesFavoriteTeam(e));
+  if (!favoriteNotifyBaselineSeeded) {
+    for (const e of liveFavoriteEvents) notifiedLiveEventIds.add(e.id);
+    favoriteNotifyBaselineSeeded = true;
+    return;
+  }
+  for (const event of liveFavoriteEvents) {
+    if (notifiedLiveEventIds.has(event.id)) continue;
+    notifiedLiveEventIds.add(event.id);
+    const teamNames = (event.teams || []).map((t) => t.name || t.code).join(" vs ");
+    try {
+      new Notification("lolgg", {
+        body: `${teamNames} is live now${event.league && event.league.name ? ` (${event.league.name})` : ""}`,
+        icon: "icons/icon-192.png",
+      });
+    } catch {
+    }
+  }
+}
+function syncPillAriaPressed(el) {
+  if (!el) return;
+  el.setAttribute("aria-pressed", el.classList.contains("active") ? "true" : "false");
+}
 async function loadLeagueFilter() {
   allLeagues = await getLeagues();
   curatedLeagues = allLeagues.filter(isMajorLeague);
   const sorted = [...curatedLeagues].sort((a, b) => a.name.localeCompare(b.name));
+  const notifyOn = getNotifyPreference() && notificationsSupported() && Notification.permission === "granted";
   leagueFilterEl.innerHTML =
-    `<button class="league-pill my-teams-pill ${myTeamsOnlyFilter ? "active" : ""}" data-my-teams="1">★ My Teams</button>` +
-    `<button class="league-pill active" data-id="__all__">All Leagues</button>` +
-    sorted.map((l) => `<button class="league-pill" data-id="${l.id}">${l.name}</button>`).join("");
+    `<button class="league-pill my-teams-pill ${myTeamsOnlyFilter ? "active" : ""}" data-my-teams="1" aria-pressed="${myTeamsOnlyFilter ? "true" : "false"}">★ My Teams</button>` +
+    (notificationsSupported()
+      ? `<button class="league-pill notify-toggle-pill ${notifyOn ? "active" : ""}" data-notify-toggle="1" aria-pressed="${notifyOn ? "true" : "false"}">🔔 Notify Me</button>`
+      : "") +
+    `<button class="league-pill active" data-id="__all__" aria-pressed="true">All Leagues</button>` +
+    sorted.map((l) => `<button class="league-pill" data-id="${l.id}" aria-pressed="false">${l.name}</button>`).join("");
   const myTeamsBtn = leagueFilterEl.querySelector(".my-teams-pill");
   if (myTeamsBtn) {
     myTeamsBtn.addEventListener("click", () => {
       myTeamsOnlyFilter = !myTeamsOnlyFilter;
       myTeamsBtn.classList.toggle("active", myTeamsOnlyFilter);
+      syncPillAriaPressed(myTeamsBtn);
       loadActiveTab();
     });
   }
-  leagueFilterEl.querySelectorAll(".league-pill:not(.my-teams-pill)").forEach((btn) => {
+  const notifyBtn = leagueFilterEl.querySelector(".notify-toggle-pill");
+  if (notifyBtn) {
+    notifyBtn.addEventListener("click", async () => {
+      const currentlyOn = notifyBtn.classList.contains("active");
+      if (currentlyOn) {
+        disableFavoriteNotifications();
+        notifyBtn.classList.remove("active");
+        syncPillAriaPressed(notifyBtn);
+        return;
+      }
+      const granted = await enableFavoriteNotifications();
+      notifyBtn.classList.toggle("active", granted);
+      syncPillAriaPressed(notifyBtn);
+      if (!granted) showEventToast("Notifications weren't allowed by the browser.");
+    });
+  }
+  leagueFilterEl.querySelectorAll(".league-pill:not(.my-teams-pill):not(.notify-toggle-pill)").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.id;
       if (id === "__all__") {
         selectedLeagueIds.clear();
-        leagueFilterEl.querySelectorAll(".league-pill:not(.my-teams-pill)").forEach((b) => b.classList.remove("active"));
+        leagueFilterEl.querySelectorAll(".league-pill:not(.my-teams-pill):not(.notify-toggle-pill)").forEach((b) => {
+          b.classList.remove("active");
+          syncPillAriaPressed(b);
+        });
         btn.classList.add("active");
+        syncPillAriaPressed(btn);
       } else {
-        leagueFilterEl.querySelector('.league-pill[data-id="__all__"]').classList.remove("active");
+        const allBtn = leagueFilterEl.querySelector('.league-pill[data-id="__all__"]');
+        allBtn.classList.remove("active");
+        syncPillAriaPressed(allBtn);
         btn.classList.toggle("active");
+        syncPillAriaPressed(btn);
         if (selectedLeagueIds.has(id)) selectedLeagueIds.delete(id);
         else selectedLeagueIds.add(id);
         if (selectedLeagueIds.size === 0) {
-          leagueFilterEl.querySelector('.league-pill[data-id="__all__"]').classList.add("active");
+          allBtn.classList.add("active");
+          syncPillAriaPressed(allBtn);
         }
       }
       loadActiveTab();
@@ -1517,6 +1706,38 @@ function pickTournamentByStatus(tournaments, league, status) {
   return null;
 }
 
+const COMPACT_VIEW_KEY = "lolgg_compact_view";
+function getCompactViewPreference() {
+  try {
+    return localStorage.getItem(COMPACT_VIEW_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function setCompactViewPreference(on) {
+  try {
+    localStorage.setItem(COMPACT_VIEW_KEY, on ? "1" : "0");
+  } catch {
+  }
+}
+function applyCompactView(on) {
+  if (tabContentEl) tabContentEl.classList.toggle("compact-view", on);
+  const btn = document.getElementById("compact-view-toggle");
+  if (btn) {
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+}
+function initCompactViewToggle() {
+  applyCompactView(getCompactViewPreference());
+  const btn = document.getElementById("compact-view-toggle");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const next = !(tabContentEl && tabContentEl.classList.contains("compact-view"));
+    setCompactViewPreference(next);
+    applyCompactView(next);
+  });
+}
 let lastTabContentHtml = null;
 function setTabContent(html) {
   if (html === lastTabContentHtml) return false;
@@ -2612,7 +2833,10 @@ async function paintMatchPage(eventId, event) {
         })()}</div>`
       : "";
 
-    streamBlockHtml = `<h3>Stream</h3>${countdownHtml}<div class="no-stream">${when}</div><p class="hint">If this match already started, but the streams are not showing, please use the links below to access.</p>${await officialStreamLinksHtml(league, startTime)}`;
+    const addToCalendarHtml = startTime
+      ? `<button type="button" class="add-to-calendar-btn" id="match-ics-btn">📅 Add to Calendar</button>`
+      : "";
+    streamBlockHtml = `<h3>Stream</h3>${countdownHtml}${addToCalendarHtml}<div class="no-stream">${when}</div><p class="hint">If this match already started, but the streams are not showing, please use the links below to access.</p>${await officialStreamLinksHtml(league, startTime)}`;
   }
   const liquipediaQuery = `${league?.name || ""} ${teams.map((t) => t.name).join(" ")}`.trim();
   const liquipediaSearchUrl = `https://liquipedia.net/leagueoflegends/Special:Search?search=${encodeURIComponent(liquipediaQuery)}`;
@@ -2636,7 +2860,7 @@ async function paintMatchPage(eventId, event) {
         <div class="modal-state">${state === "inProgress" ? "Ongoing" : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
       </div>`;
   matchMainEl.innerHTML = `
-    <a class="back-link" href="#/">&larr; Back to schedule</a>
+    <div class="page-top-row"><a class="back-link" href="#/">&larr; Back to schedule</a>${copyLinkButtonHtml()}</div>
     <div class="modal-header">
       ${
         tournamentHref
@@ -2667,6 +2891,9 @@ async function paintMatchPage(eventId, event) {
     <div id="h2h-slot">${headToHeadHtml(teams, eventId)}</div>
     ${bracketLinkHtml}
   `;
+  wireCopyLinkButtons(matchMainEl);
+  const icsBtn = matchMainEl.querySelector("#match-ics-btn");
+  if (icsBtn && event) icsBtn.addEventListener("click", () => downloadIcsForEvent(event));
   if (state === "inProgress" && liveStreamItems.length) wireStreamSection(matchMainEl, liveStreamItems, "live");
   if (state === "completed" && vods.length) wireStreamSection(matchMainEl, vods, "vod");
   if (state === "inProgress") loadCostreamStatuses(matchMainEl, true, teams);
@@ -3318,7 +3545,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
   const contentHtml = await buildTournamentContentHtml(leagueId, tournament, league);
   const switcherHtml = tournamentSwitcherHtml(leagueId, tournaments, league, tournament.id);
   tournamentMainEl.innerHTML = `
-    <a class="back-link" href="#/">&larr; Back to schedule</a>
+    <div class="page-top-row"><a class="back-link" href="#/">&larr; Back to schedule</a>${copyLinkButtonHtml()}</div>
     <div class="modal-header">
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
@@ -3331,6 +3558,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
     <a class="watch-link" href="${liquipediaSearchUrl}" target="_blank" rel="noopener">Full tournament page on Liquipedia ↗</a>
   `;
   wirePagination(tournamentMainEl);
+  wireCopyLinkButtons(tournamentMainEl);
 
   tournamentPagePollTimer = setInterval(async () => {
     const r = getRoute();
@@ -3445,14 +3673,44 @@ async function renderTeamPage(teamCode) {
   `;
   wirePagination(teamMainEl);
 }
+function showFatalErrorBanner() {
+  const el = document.getElementById("fatal-error-banner");
+  if (!el) return;
+  el.innerHTML = `Something went wrong loading this page. <button type="button" class="fatal-error-reload">Reload</button>`;
+  el.classList.remove("hidden");
+  const btn = el.querySelector(".fatal-error-reload");
+  if (btn) btn.addEventListener("click", () => window.location.reload());
+}
+function hideFatalErrorBanner() {
+  const el = document.getElementById("fatal-error-banner");
+  if (!el) return;
+  el.classList.add("hidden");
+}
+function updateOfflineBanner() {
+  const el = document.getElementById("offline-banner");
+  if (!el) return;
+  el.classList.toggle("hidden", navigator.onLine);
+}
 function route() {
-  const r = getRoute();
-  if (r.view === "match") renderMatchPage(r.id);
-  else if (r.view === "tournament") renderTournamentPage(r.id, r.tournamentId);
-  else if (r.view === "team") renderTeamPage(r.id);
-  else renderHome();
+  try {
+    const r = getRoute();
+    const result =
+      r.view === "match"
+        ? renderMatchPage(r.id)
+        : r.view === "tournament"
+        ? renderTournamentPage(r.id, r.tournamentId)
+        : r.view === "team"
+        ? renderTeamPage(r.id)
+        : renderHome();
+    hideFatalErrorBanner();
+    Promise.resolve(result).catch(() => showFatalErrorBanner());
+  } catch {
+    showFatalErrorBanner();
+  }
 }
 window.addEventListener("hashchange", route);
+window.addEventListener("online", updateOfflineBanner);
+window.addEventListener("offline", updateOfflineBanner);
 
 const MATCH_TAB_LABELS = { live: "Ongoing", unstarted: "Upcoming", completed: "Completed" };
 const TOURNAMENT_STATUS_LABELS = { ongoing: "Ongoing", upcoming: "Upcoming", completed: "Completed" };
@@ -3471,7 +3729,10 @@ function updateNavLabels() {
       btn.innerHTML = `Matches: ${MATCH_TAB_LABELS[matchesTab]} <span class="nav-caret">&#9662;</span>`;
     }
     matchesGroup.querySelectorAll(".nav-dropdown-item").forEach((item) => {
-      item.classList.toggle("active", item.dataset.tab === matchesTab);
+      const active = item.dataset.tab === matchesTab;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
     });
   }
   if (tournamentsGroup) {
@@ -3482,12 +3743,19 @@ function updateNavLabels() {
       btn.innerHTML = `Tournaments: ${TOURNAMENT_STATUS_LABELS[tournamentsStatusFilter]} <span class="nav-caret">&#9662;</span>`;
     }
     tournamentsGroup.querySelectorAll(".nav-dropdown-item").forEach((item) => {
-      item.classList.toggle("active", item.dataset.status === tournamentsStatusFilter);
+      const active = item.dataset.status === tournamentsStatusFilter;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
     });
   }
 }
 function closeAllNavDropdowns() {
-  tabsEl.querySelectorAll(".nav-dropdown").forEach((d) => d.classList.remove("open"));
+  tabsEl.querySelectorAll(".nav-dropdown").forEach((d) => {
+    d.classList.remove("open");
+    const btn = d.querySelector(".nav-dropdown-btn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  });
 }
 tabsEl.querySelectorAll(".nav-dropdown-btn").forEach((btn) => {
   btn.addEventListener("click", (ev) => {
@@ -3495,7 +3763,10 @@ tabsEl.querySelectorAll(".nav-dropdown-btn").forEach((btn) => {
     const group = btn.closest(".nav-dropdown");
     const wasOpen = group.classList.contains("open");
     closeAllNavDropdowns();
-    if (!wasOpen) group.classList.add("open");
+    if (!wasOpen) {
+      group.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
   });
 });
 document.addEventListener("click", () => closeAllNavDropdowns());
@@ -3586,15 +3857,19 @@ async function init() {
   wireFavoriteStarDelegation();
   initSiteSearch();
   startLocalClockTicker();
+  updateOfflineBanner();
+  initCompactViewToggle();
   await loadLeagueFilter();
   await getSchedule(effectiveLeagueIds());
+  checkFavoriteTeamLiveNotifications();
   route();
 
   setInterval(async () => {
     await getSchedule(effectiveLeagueIds());
+    checkFavoriteTeamLiveNotifications();
     const r = getRoute();
 
     if (r.view === "home") loadActiveTab(true);
   }, 20 * 1000);
 }
-init();
+init().catch(() => showFatalErrorBanner());
