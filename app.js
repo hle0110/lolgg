@@ -163,15 +163,18 @@ async function officialStreamLinksHtml(league, startTime) {
   return `<div class="watch-links-row">${OFFICIAL_YOUTUBE_LINK_HTML}</div>`;
 }
 async function decapiTwitchTitle(twitchLogin) {
-  return cached(`streamtitle:${twitchLogin}`, 30 * 1000, async () => {
-    try {
-      const res = await fetch(`https://decapi.me/twitch/title/${encodeURIComponent(twitchLogin)}`);
-      if (!res.ok) return "";
-      return (await res.text()).trim();
-    } catch {
-      return "";
-    }
-  });
+  const key = `streamtitle:${twitchLogin}`;
+  const hit = cache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  try {
+    const res = await fetch(`https://decapi.me/twitch/title/${encodeURIComponent(twitchLogin)}`);
+    if (!res.ok) return hit ? hit.value : "";
+    const text = (await res.text()).trim();
+    cache.set(key, { value: text, expiresAt: Date.now() + 30 * 1000 });
+    return text;
+  } catch {
+    return hit ? hit.value : "";
+  }
 }
 function titleMentionsTeam(title, team) {
   if (!title || !team) return false;
@@ -1349,44 +1352,6 @@ function downloadIcsForEvent(event) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-function copyLinkButtonHtml() {
-  return `<button type="button" class="copy-link-btn" data-copy-link="1">🔗 Copy Link</button>`;
-}
-function wireCopyLinkButtons(container) {
-  if (!container) return;
-  container.querySelectorAll(".copy-link-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const url = window.location.href;
-      let copied = false;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(url);
-          copied = true;
-        }
-      } catch {
-      }
-      if (!copied) {
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = url;
-          ta.style.position = "fixed";
-          ta.style.opacity = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          ta.remove();
-          copied = true;
-        } catch {
-        }
-      }
-      const original = btn.textContent;
-      btn.textContent = copied ? "✓ Copied!" : "Couldn't copy";
-      setTimeout(() => {
-        btn.textContent = original;
-      }, 1500);
-    });
-  });
 }
 function localTimeLabel(iso) {
   const tz = getActiveTimeZone();
@@ -2860,7 +2825,7 @@ async function paintMatchPage(eventId, event) {
         <div class="modal-state">${state === "inProgress" ? "Ongoing" : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
       </div>`;
   matchMainEl.innerHTML = `
-    <div class="page-top-row"><a class="back-link" href="#/">&larr; Back to schedule</a>${copyLinkButtonHtml()}</div>
+    <a class="back-link" href="#/">&larr; Back to schedule</a>
     <div class="modal-header">
       ${
         tournamentHref
@@ -2891,7 +2856,6 @@ async function paintMatchPage(eventId, event) {
     <div id="h2h-slot">${headToHeadHtml(teams, eventId)}</div>
     ${bracketLinkHtml}
   `;
-  wireCopyLinkButtons(matchMainEl);
   const icsBtn = matchMainEl.querySelector("#match-ics-btn");
   if (icsBtn && event) icsBtn.addEventListener("click", () => downloadIcsForEvent(event));
   if (state === "inProgress" && liveStreamItems.length) wireStreamSection(matchMainEl, liveStreamItems, "live");
@@ -3545,7 +3509,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
   const contentHtml = await buildTournamentContentHtml(leagueId, tournament, league);
   const switcherHtml = tournamentSwitcherHtml(leagueId, tournaments, league, tournament.id);
   tournamentMainEl.innerHTML = `
-    <div class="page-top-row"><a class="back-link" href="#/">&larr; Back to schedule</a>${copyLinkButtonHtml()}</div>
+    <a class="back-link" href="#/">&larr; Back to schedule</a>
     <div class="modal-header">
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
@@ -3558,7 +3522,6 @@ async function renderTournamentPage(leagueId, tournamentId) {
     <a class="watch-link" href="${liquipediaSearchUrl}" target="_blank" rel="noopener">Full tournament page on Liquipedia ↗</a>
   `;
   wirePagination(tournamentMainEl);
-  wireCopyLinkButtons(tournamentMainEl);
 
   tournamentPagePollTimer = setInterval(async () => {
     const r = getRoute();

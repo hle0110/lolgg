@@ -726,17 +726,6 @@ a.team-card:hover {
   margin-bottom: 16px;
 }
 .back-link:hover { text-decoration: underline; }
-.page-top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.page-top-row .back-link {
-  margin-bottom: 0;
-}
-.copy-link-btn,
 .add-to-calendar-btn {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -746,14 +735,11 @@ a.team-card:hover {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-}
-.copy-link-btn:hover,
-.add-to-calendar-btn:hover {
-  background: var(--panel-hover);
-}
-.add-to-calendar-btn {
   display: block;
   margin: 10px 0;
+}
+.add-to-calendar-btn:hover {
+  background: var(--panel-hover);
 }
 .modal-header {
   display: flex;
