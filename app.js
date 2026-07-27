@@ -133,7 +133,7 @@ async function resolveKnownLeagueStreamPriority(known, startTime) {
   }
   const isLive = await decapiTwitchIsLive(twitchLoginFromUrl(twitchLink.url));
   if (isLive === false) {
-    return { primary: "youtube", status: "Twitch isn't live yet - showing YouTube instead." };
+    return { primary: "youtube", status: "" };
   }
   return { primary: "twitch", status: isLive === true ? "Live now on Twitch." : "" };
 }
@@ -757,8 +757,12 @@ function findActiveTournament(tournaments, league) {
 }
 function tournamentDateRangeLabel(t) {
   if (!t || !t.startDate) return "";
-  const fmt = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  return t.endDate ? `${fmt(t.startDate)} to ${fmt(t.endDate)}` : fmt(t.startDate);
+  const fmtFull = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const fmtShort = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  if (!t.endDate) return fmtFull(t.startDate);
+  const startYear = new Date(t.startDate).getUTCFullYear();
+  const endYear = new Date(t.endDate).getUTCFullYear();
+  return startYear === endYear ? `${fmtShort(t.startDate)} - ${fmtFull(t.endDate)}` : `${fmtFull(t.startDate)} - ${fmtFull(t.endDate)}`;
 }
 function resolvedTournamentDateRangeLabel(league, tournament) {
   const override = liquipediaDateOverrideForLeague(league);
@@ -968,7 +972,7 @@ function standingsHtml(standings, providedLookup) {
           let rankingsHtml = "";
           if (section.rankings && section.rankings.length) {
             const rows = section.rankings
-              .flatMap((r) => (r.teams || []).filter((t) => t.code || t.name).map((t) => ({ ordinal: r.ordinal, t })))
+              .flatMap((r) => (r.teams || []).filter((t) => !isTbdPlaceholderTeam(t)).map((t) => ({ ordinal: r.ordinal, t })))
               .map(({ ordinal, t }) => standingsTableRowHtml(ordinal, t))
               .join("");
             if (rows) {
@@ -2928,6 +2932,7 @@ function extractTeamsFromStandings(standings, providedLookup) {
     for (const section of stage.sections || []) {
       for (const r of section.rankings || []) {
         for (const t of r.teams || []) {
+          if (isTbdPlaceholderTeam(t)) continue;
           const key = t.id || t.code || t.name;
           if (key && !byId.has(key)) byId.set(key, t);
         }
@@ -2935,6 +2940,7 @@ function extractTeamsFromStandings(standings, providedLookup) {
       for (const m of section.matches || []) {
         for (const t of m.teams || []) {
           const resolved = resolveMatchTeam(t, lookup) || t;
+          if (isTbdPlaceholderTeam(resolved)) continue;
           const key = resolved.id || resolved.code || resolved.name;
           if (key && !byId.has(key)) byId.set(key, resolved);
         }

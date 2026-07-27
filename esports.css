@@ -634,6 +634,13 @@ a.team-card:hover {
   word-break: break-word;
   min-width: 0;
 }
+.schedule-row .team-name,
+.game-row .team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .esports-team img {
   width: 24px;
   height: 24px;
@@ -762,18 +769,19 @@ a.team-card:hover {
 .tournament-switcher {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 16px;
 }
 .tournament-switcher-pill {
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 20px;
-  padding: 5px 12px;
-  font-size: 11px;
+  border-radius: 14px;
+  padding: 3px 9px;
+  font-size: 10px;
   text-decoration: none;
   white-space: nowrap;
+  line-height: 1.5;
 }
 .tournament-switcher-pill:hover {
   color: var(--text);
