@@ -288,7 +288,7 @@ a.team-card:hover {
   padding: 0 20px 60px;
 }
 .section-title {
-  color: var(--gold);
+  color: var(--heading);
   font-size: 16px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -814,7 +814,7 @@ a.team-card:hover {
   font-size: 14px;
 }
 .match-page h3 {
-  color: var(--gold);
+  color: var(--heading);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -923,10 +923,9 @@ a.team-card:hover {
   margin-bottom: 16px;
 }
 .stage-name {
-  color: var(--gold);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--heading);
+  font-size: 15px;
+  font-weight: 700;
   margin: 0 0 8px;
 }
 .standings-section h4 {
@@ -943,7 +942,7 @@ a.team-card:hover {
 .standings-table thead th {
   text-align: left;
   padding: 4px 8px;
-  color: var(--gold);
+  color: var(--heading);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1057,7 +1056,7 @@ a.bracket-match:hover {
   width: 230px;
 }
 .bracket-column-title {
-  color: var(--gold);
+  color: var(--heading);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1502,20 +1501,6 @@ a.bracket-match:hover {
 .tournament-live-row {
   border: 1px solid #4c2a2a;
   background: rgba(224, 82, 82, 0.06);
-}
-.live-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e05252;
-  margin-right: 8px;
-  flex-shrink: 0;
-  animation: live-dot-pulse 1.6s ease-in-out infinite;
-}
-@keyframes live-dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
 }
 
 .site-nav {

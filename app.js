@@ -3005,7 +3005,7 @@ function tournamentLiveGameRowHtml(e) {
   const teams = e.teams.map((t) => ({ ...t, gameWins: null }));
   return `
     <a class="game-row recent-match-row tournament-live-row" href="#/match/${encodeURIComponent(e.id)}">
-      <span class="live-dot" aria-hidden="true"></span>
+      <span class="state-badge inProgress">Live</span>
       <div class="match-teams">${teams.map((t) => teamHtml(t)).join('<div class="vs">vs</div>')}</div>
       <div class="match-meta">
         <span class="hint">${e.bestOf ? `Bo${e.bestOf}` : ""}</span>
@@ -3403,7 +3403,7 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
   const liveGames = await getLiveEventsForTournament(leagueId, tournament, league);
   const bracketEvents = await getAllTournamentBracketEvents(leagueId, tournament, league, recentGames, standings, teamLookup);
   const liveGamesHtml = liveGames.length
-    ? `<h3>🔴 Live Now</h3><div class="games-list">${liveGames.map(tournamentLiveGameRowHtml).join("")}</div>`
+    ? `<h3>Live Now</h3><div class="games-list">${liveGames.map(tournamentLiveGameRowHtml).join("")}</div>`
     : "";
   const recentGamesHtml = recentGames.length
     ? paginatedBlocksHtml(recentGames.map((e) => tournamentGameRowHtml(e, "Watch VOD ↗")), 10, "games-list")
