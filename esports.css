@@ -246,8 +246,17 @@ a.team-card:hover {
   align-items: center;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
   border-radius: 8px;
   transition: background 0.15s;
+}
+.match-teams .team-link:first-child {
+  justify-content: flex-end;
+  justify-self: end;
+}
+.match-teams .team-link:last-child {
+  justify-content: flex-start;
+  justify-self: start;
 }
 .team-link .esports-team {
   min-width: 0;
@@ -621,12 +630,15 @@ a.team-card:hover {
   gap: 6px;
   font-size: 13px;
   min-width: 0;
+  max-width: 100%;
 }
 .esports-team:first-child {
   justify-content: flex-end;
+  justify-self: end;
 }
 .esports-team:last-child {
   justify-content: flex-start;
+  justify-self: start;
 }
 
 .team-name {
