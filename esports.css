@@ -617,7 +617,7 @@ a.team-card:hover {
 }
 .esports-team {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   font-size: 13px;
   min-width: 0;
@@ -627,10 +627,6 @@ a.team-card:hover {
 }
 .esports-team:last-child {
   justify-content: flex-start;
-}
-.esports-team img,
-.esports-team .team-avatar-fallback {
-  margin-top: 1px;
 }
 
 .team-name {
