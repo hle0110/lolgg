@@ -504,6 +504,31 @@ async function getEventDetails(id) {
   });
 }
 
+function startsWithinNextHour(startTime) {
+  if (!startTime) return false;
+  const diffMs = new Date(startTime).getTime() - Date.now();
+  return diffMs > 0 && diffMs <= 60 * 60 * 1000;
+}
+async function checkEarlyLiveMatches() {
+  const candidates = scheduleCache.filter((e) => e.state === "unstarted" && startsWithinNextHour(e.startTime));
+  if (!candidates.length) return;
+  await Promise.all(
+    candidates.map(async (e) => {
+      try {
+        const detail = await getEventDetails(e.id);
+        const liveNow = detail.state === "inProgress" || (detail.games || []).some((g) => g.state === "inProgress");
+        if (!liveNow) return;
+        const idx = scheduleCache.findIndex((x) => x.id === e.id);
+        if (idx !== -1) scheduleCache[idx] = { ...scheduleCache[idx], state: "inProgress" };
+      } catch {
+      }
+    })
+  );
+}
+function scheduleCacheEventState(id) {
+  const e = scheduleCache.find((x) => x.id === id);
+  return e ? e.state : null;
+}
 function pickCurrentLiveGame(games) {
   const list = games || [];
   return list.find((g) => g.state === "inProgress") || list.find((g) => g.state !== "completed") || list[list.length - 1] || null;
@@ -1671,38 +1696,6 @@ function pickTournamentByStatus(tournaments, league, status) {
   return null;
 }
 
-const COMPACT_VIEW_KEY = "lolgg_compact_view";
-function getCompactViewPreference() {
-  try {
-    return localStorage.getItem(COMPACT_VIEW_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-function setCompactViewPreference(on) {
-  try {
-    localStorage.setItem(COMPACT_VIEW_KEY, on ? "1" : "0");
-  } catch {
-  }
-}
-function applyCompactView(on) {
-  if (tabContentEl) tabContentEl.classList.toggle("compact-view", on);
-  const btn = document.getElementById("compact-view-toggle");
-  if (btn) {
-    btn.classList.toggle("active", on);
-    btn.setAttribute("aria-pressed", on ? "true" : "false");
-  }
-}
-function initCompactViewToggle() {
-  applyCompactView(getCompactViewPreference());
-  const btn = document.getElementById("compact-view-toggle");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    const next = !(tabContentEl && tabContentEl.classList.contains("compact-view"));
-    setCompactViewPreference(next);
-    applyCompactView(next);
-  });
-}
 let lastTabContentHtml = null;
 function setTabContent(html) {
   if (html === lastTabContentHtml) return false;
@@ -1935,10 +1928,17 @@ function isPlayableVod(v) {
   return false;
 }
 
-function highlightsChannelSearchUrl(league, teams) {
+const HIGHLIGHT_CHANNELS = ["oplolreplay", "OniviaHighlights"];
+function highlightsChannelSearchUrl(channel, league, teams) {
   const teamNames = (teams || []).map((t) => t.name || t.code).filter(Boolean).join(" vs ");
   const query = `${league?.name || ""} ${teamNames}`.trim();
-  return `https://www.youtube.com/@oplolreplay/search?query=${encodeURIComponent(query)}`;
+  return `https://www.youtube.com/@${channel}/search?query=${encodeURIComponent(query)}`;
+}
+function highlightsSearchLinksHtml(league, teams) {
+  return HIGHLIGHT_CHANNELS.map(
+    (channel) =>
+      `<a class="watch-link" href="${highlightsChannelSearchUrl(channel, league, teams)}" target="_blank" rel="noopener">Search for highlights on ${channel} (YouTube) ↗</a>`
+  ).join("");
 }
 
 function streamPosterHtml(label) {
@@ -2785,7 +2785,7 @@ async function paintMatchPage(eventId, event) {
     const playableVods = vods.filter(isPlayableVod);
     streamBlockHtml = playableVods.length
       ? `<h3>Watch VOD</h3>${streamSectionHtml(playableVods, "vod")}`
-      : `<h3>Watch Highlights</h3><div class="no-stream">No official VOD link available for this match.</div><a class="watch-link" href="${highlightsChannelSearchUrl(league, teams)}" target="_blank" rel="noopener">Search for highlights on oplolreplay (YouTube) ↗</a>`;
+      : `<h3>Watch Highlights</h3><div class="no-stream">No official VOD link available for this match.</div>${highlightsSearchLinksHtml(league, teams)}`;
   } else {
     const when = startTime
       ? `Scheduled for ${localTimeLabel(startTime)} (${getActiveTimeZone() || "your local time"}). The stream will appear here automatically once the match goes live.`
@@ -3821,14 +3821,15 @@ async function init() {
   initSiteSearch();
   startLocalClockTicker();
   updateOfflineBanner();
-  initCompactViewToggle();
   await loadLeagueFilter();
   await getSchedule(effectiveLeagueIds());
+  await checkEarlyLiveMatches();
   checkFavoriteTeamLiveNotifications();
   route();
 
   setInterval(async () => {
     await getSchedule(effectiveLeagueIds());
+    await checkEarlyLiveMatches();
     checkFavoriteTeamLiveNotifications();
     const r = getRoute();
 

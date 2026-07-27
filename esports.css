@@ -120,6 +120,25 @@
     margin: 6px auto 0;
     width: fit-content;
   }
+  .tz-picker {
+    position: static;
+    justify-content: center;
+    margin: 8px auto 0;
+    width: fit-content;
+  }
+}
+@media (orientation: landscape) and (max-height: 420px) {
+  header {
+    padding-top: 10px;
+    padding-bottom: 8px;
+  }
+  header h1 {
+    font-size: 18px;
+    margin-bottom: 2px;
+  }
+  header p {
+    font-size: 12px;
+  }
 }
 .footer-copyright {
   color: var(--text);
@@ -526,43 +545,6 @@ a.team-card:hover {
   font-size: 14px;
   margin: 20px 0 8px;
 }
-.view-toggle-row {
-  display: flex;
-  justify-content: flex-end;
-  padding: 6px 0;
-}
-.compact-toggle-btn {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.compact-toggle-btn.active {
-  background: var(--panel-hover);
-  color: var(--text);
-  border-color: var(--gold);
-}
-.compact-view .schedule-row {
-  padding: 6px 10px;
-  margin-bottom: 4px;
-  gap: 8px;
-}
-.compact-view .day-heading {
-  margin: 12px 0 6px;
-  font-size: 13px;
-}
-.compact-view .league-name {
-  font-size: 11px;
-  min-width: 90px;
-  flex: 1 1 90px;
-}
-.compact-view .team-name {
-  font-size: 13px;
-}
 .schedule-row {
   display: flex;
   align-items: center;
@@ -968,7 +950,10 @@ a.team-card:hover {
 .standings-rank {
   font-weight: 700;
   color: var(--gold);
-  width: 24px;
+  width: 28px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .standings-team-cell {
   min-width: 0;
