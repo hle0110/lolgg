@@ -617,7 +617,7 @@ a.team-card:hover {
 }
 .esports-team {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   font-size: 13px;
   min-width: 0;
@@ -628,6 +628,10 @@ a.team-card:hover {
 .esports-team:last-child {
   justify-content: flex-start;
 }
+.esports-team img,
+.esports-team .team-avatar-fallback {
+  margin-top: 1px;
+}
 
 .team-name {
   overflow-wrap: break-word;
@@ -636,10 +640,14 @@ a.team-card:hover {
 }
 .schedule-row .team-name,
 .game-row .team-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  line-height: 1.3;
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+}
+.schedule-row .esports-team:first-child .team-name,
+.game-row .esports-team:first-child .team-name {
+  text-align: right;
 }
 .esports-team img {
   width: 24px;
