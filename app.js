@@ -1616,7 +1616,7 @@ async function loadLeagueFilter() {
   leagueFilterEl.innerHTML =
     `<button class="league-pill my-teams-pill ${myTeamsOnlyFilter ? "active" : ""}" data-my-teams="1" aria-pressed="${myTeamsOnlyFilter ? "true" : "false"}">★ My Teams</button>` +
     (notificationsSupported()
-      ? `<button class="league-pill notify-toggle-pill ${notifyOn ? "active" : ""}" data-notify-toggle="1" aria-pressed="${notifyOn ? "true" : "false"}">🔔 Notify Me</button>`
+      ? `<button class="league-pill notify-toggle-pill ${notifyOn ? "active" : ""}" data-notify-toggle="1" aria-pressed="${notifyOn ? "true" : "false"}">Notify Me</button>`
       : "") +
     `<button class="league-pill active" data-id="__all__" aria-pressed="true">All Leagues</button>` +
     sorted.map((l) => `<button class="league-pill" data-id="${l.id}" aria-pressed="false">${l.name}</button>`).join("");
@@ -1990,14 +1990,14 @@ function streamSectionHtml(items, kind) {
     <div class="stream-embed-wrap" id="${kind}-embed-wrap">${streamPosterHtml(`Click to play on ${providerLabel}`)}</div>
     <div class="stream-controls-row">
       <div id="${kind}-watch-link-wrap">${firstWatchUrl ? `<a class="watch-link" href="${firstWatchUrl}" target="_blank" rel="noopener">If the player above doesn't load, watch on ${providerLabel} directly ↗</a>` : ""}</div>
-      <button class="theatre-toggle-btn" type="button">⛶ Theatre Mode</button>
+      <button class="theatre-toggle-btn" type="button">Theatre Mode</button>
     </div>`;
 }
 
 function wireTheatreToggle(container) {
   const btns = container.querySelectorAll(".theatre-toggle-btn");
   if (!btns.length) return;
-  const label = () => (matchViewEl.classList.contains("theatre-mode") ? "⛶ Exit Theatre Mode" : "⛶ Theatre Mode");
+  const label = () => (matchViewEl.classList.contains("theatre-mode") ? "Exit Theatre Mode" : "Theatre Mode");
   const syncAll = () => btns.forEach((b) => { b.textContent = label(); });
   syncAll();
   btns.forEach((btn) => {
@@ -2087,7 +2087,7 @@ function costreamBlockHtml(liveOnes) {
     <div class="stream-embed-wrap" id="costream-embed-wrap"></div>
     <div class="stream-controls-row">
       <span></span>
-      <button class="theatre-toggle-btn" type="button">⛶ Theatre Mode</button>
+      <button class="theatre-toggle-btn" type="button">Theatre Mode</button>
     </div>`;
 }
 function wireCostreamSwitch(container, liveOnes) {
@@ -2803,7 +2803,7 @@ async function paintMatchPage(eventId, event) {
       : "";
 
     const addToCalendarHtml = startTime
-      ? `<button type="button" class="add-to-calendar-btn" id="match-ics-btn">📅 Add to Calendar</button>`
+      ? `<button type="button" class="add-to-calendar-btn" id="match-ics-btn">Add to Calendar</button>`
       : "";
     streamBlockHtml = `<h3>Stream</h3>${countdownHtml}${addToCalendarHtml}<div class="no-stream">${when}</div><p class="hint">If this match already started, but the streams are not showing, please use the links below to access.</p>${await officialStreamLinksHtml(league, startTime)}`;
   }
