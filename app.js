@@ -258,7 +258,7 @@ function deriveMissingOutcomes(teams, bestOf) {
   if (!bothScored) return teams;
   const threshold = seriesWinThreshold(bestOf);
   const leaderWins = Math.max(a.gameWins, b.gameWins);
-  const seriesClinched = threshold === null || leaderWins >= threshold;
+  const seriesClinched = threshold !== null && leaderWins >= threshold;
   if (!seriesClinched) return teams;
   if (!a.outcome) a.outcome = a.gameWins > b.gameWins ? "win" : "loss";
   if (!b.outcome) b.outcome = b.gameWins > a.gameWins ? "win" : "loss";
@@ -293,7 +293,7 @@ function computeEffectiveState(rawState, teams, startTime) {
 
   if (rawState === "unstarted" && startTime) {
     const elapsedMs = Date.now() - new Date(startTime).getTime();
-    if (elapsedMs > 0 && elapsedMs < 5 * 60 * 60 * 1000) return "inProgress";
+    if (elapsedMs > -15 * 60 * 1000 && elapsedMs < 5 * 60 * 60 * 1000) return "inProgress";
   }
   return rawState;
 }
@@ -1885,6 +1885,13 @@ function pickStreams(streams) {
 function providerName(provider) {
   return (provider || "").toLowerCase();
 }
+function providerDisplayName(provider) {
+  const p = providerName(provider);
+  if (p === "twitch") return "Twitch";
+  if (p === "youtube") return "YouTube";
+  if (!p) return "Stream";
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
 function extractYoutubeId(param) {
   if (!param) return param;
   const value = String(param).trim();
@@ -1929,6 +1936,12 @@ function isPlayableVod(v) {
   const provider = providerName(v.provider);
   if (provider === "twitch") return !!(v.parameter && String(v.parameter).trim());
   if (provider === "youtube") return /^[a-zA-Z0-9_-]{11}$/.test(extractYoutubeId(v.parameter) || "");
+  return false;
+}
+function isPlayableStream(s) {
+  const provider = providerName(s.provider);
+  if (provider === "twitch") return !!(s.parameter && String(s.parameter).trim());
+  if (provider === "youtube") return /^[a-zA-Z0-9_-]{11}$/.test(extractYoutubeId(s.parameter) || "");
   return false;
 }
 
@@ -1980,11 +1993,11 @@ function streamSectionHtml(items, kind) {
       ? `<div class="locale-switch">${items
           .map(
             (s, idx) =>
-              `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerName(s.provider) === "twitch" ? "Twitch" : "YouTube"} (${s.locale})</button>`
+              `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerDisplayName(s.provider)} (${s.locale})</button>`
           )
           .join("")}</div>`
       : "";
-  const providerLabel = providerName(first.provider) === "twitch" ? "Twitch" : "YouTube";
+  const providerLabel = providerDisplayName(first.provider);
   return `
     ${localeButtons}
     <div class="stream-embed-wrap" id="${kind}-embed-wrap">${streamPosterHtml(`Click to play on ${providerLabel}`)}</div>
@@ -2022,7 +2035,7 @@ function wireStreamSection(container, items, kind) {
     state.playing = true;
   };
   const showPoster = () => {
-    const providerLabel = providerName(items[state.idx].provider) === "twitch" ? "Twitch" : "YouTube";
+    const providerLabel = providerDisplayName(items[state.idx].provider);
     mountStreamPoster(wrap, `Click to play on ${providerLabel}`, play);
   };
   showPoster();
@@ -2036,7 +2049,7 @@ function wireStreamSection(container, items, kind) {
       const watchUrl = watchUrlFor(item);
       if (watchWrap) {
         watchWrap.innerHTML = watchUrl
-          ? `<a class="watch-link" href="${watchUrl}" target="_blank" rel="noopener">If the player above doesn't load, watch on ${providerName(item.provider) === "twitch" ? "Twitch" : "YouTube"} directly ↗</a>`
+          ? `<a class="watch-link" href="${watchUrl}" target="_blank" rel="noopener">If the player above doesn't load, watch on ${providerDisplayName(item.provider)} directly ↗</a>`
           : "";
       }
       if (state.playing) play();
@@ -2764,9 +2777,9 @@ async function paintMatchPage(eventId, event) {
     : pickStreams(detail.streams);
   const allVods = (detail.games || []).flatMap((g) => g.vods || []);
   const vods = pickStreams(allVods);
-  let liveStreamItems = streams;
+  let liveStreamItems = streams.filter(isPlayableStream);
   let ewcFallbackHint = "";
-  if (!streams.length && isEwcLeague(league) && state === "inProgress") {
+  if (!liveStreamItems.length && isEwcLeague(league) && state === "inProgress") {
     let matched = null;
     try {
       matched = await resolveEwcStreamForMatch(teams);
