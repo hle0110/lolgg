@@ -67,6 +67,13 @@ const EWC_ARENA_STREAMS = [
 function isEwcLeague(league) {
   return !!(league && league.name && league.name.toLowerCase().includes("esports world cup"));
 }
+function isLplLeague(league) {
+  if (!league) return false;
+  const slug = (league.slug || "").trim().toLowerCase();
+  const name = (league.name || "").trim().toLowerCase();
+  return slug === "lpl" || name === "lpl";
+}
+const LPL_OFFICIAL_TWITCH_CHANNEL = "lplenglish";
 function ewcArenaStreamItems() {
   return EWC_ARENA_STREAMS.map((s) => ({ provider: "twitch", parameter: s.twitch, locale: s.name }));
 }
@@ -287,14 +294,20 @@ function seriesOutcomeDecided(teams) {
 function seriesInProgressByScore(teams) {
   return !!(teams && teams.length && teams.some((t) => t.gameWins > 0) && !seriesOutcomeDecided(teams));
 }
+function hasNoRecordedProgress(teams) {
+  return !teams || !teams.length || teams.every((t) => !t.gameWins && !t.outcome);
+}
 function computeEffectiveState(rawState, teams, startTime) {
   if (seriesOutcomeDecided(teams)) return "completed";
   if (seriesInProgressByScore(teams)) return "inProgress";
 
-  if (rawState === "unstarted" && startTime) {
+  const untrustedCompleted = rawState === "completed" && hasNoRecordedProgress(teams);
+
+  if ((rawState === "unstarted" || untrustedCompleted) && startTime) {
     const elapsedMs = Date.now() - new Date(startTime).getTime();
     if (elapsedMs > -15 * 60 * 1000 && elapsedMs < 5 * 60 * 60 * 1000) return "inProgress";
   }
+  if (untrustedCompleted) return "unstarted";
   return rawState;
 }
 function normalizeEvent(e) {
@@ -2780,7 +2793,7 @@ async function paintMatchPage(eventId, event) {
   const allVods = (detail.games || []).flatMap((g) => g.vods || []);
   const vods = pickStreams(allVods);
   let liveStreamItems = streams.filter(isPlayableStream);
-  let ewcFallbackHint = "";
+  let streamFallbackHint = "";
   if (!liveStreamItems.length && isEwcLeague(league) && state === "inProgress") {
     let matched = null;
     try {
@@ -2789,16 +2802,19 @@ async function paintMatchPage(eventId, event) {
     }
     if (matched) {
       liveStreamItems = [matched];
-      ewcFallbackHint = `<p class="hint">Matched from the arena stream's live title (no per-match EWC stream link yet).</p>`;
+      streamFallbackHint = `<p class="hint">Matched from the arena stream's live title (no per-match EWC stream link yet).</p>`;
     } else {
       liveStreamItems = ewcArenaStreamItems();
-      ewcFallbackHint = `<p class="hint">No per-match EWC stream link yet &ndash; pick whichever arena stage this match is on.</p>`;
+      streamFallbackHint = `<p class="hint">No per-match EWC stream link yet &ndash; pick whichever arena stage this match is on.</p>`;
     }
+  } else if (!liveStreamItems.length && isLplLeague(league) && state === "inProgress") {
+    liveStreamItems = [{ provider: "twitch", parameter: LPL_OFFICIAL_TWITCH_CHANNEL, locale: "LPL Official (EN)" }];
+    streamFallbackHint = `<p class="hint">No per-match LPL stream link yet &ndash; showing the official LPL English Twitch channel.</p>`;
   }
   let streamBlockHtml;
   if (state === "inProgress") {
 
-    streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${ewcFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
+    streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${streamFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
   } else if (state === "completed") {
 
     const playableVods = vods.filter(isPlayableVod);
