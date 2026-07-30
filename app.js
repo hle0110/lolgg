@@ -444,12 +444,12 @@ async function getSchedule(leagueIds) {
   const freshEvents = events.filter((e) => isOnOrAfterCutoff(e.startTime));
   const freshSupplemental = supplemental.filter((e) => isOnOrAfterCutoff(e.startTime));
   const byId = new Map(scheduleCache.filter((e) => isOnOrAfterCutoff(e.startTime)).map((e) => [e.id, e]));
-  for (const e of freshEvents) byId.set(e.id, e);
-
   for (const e of freshSupplemental) byId.set(e.id, e);
+
+  for (const e of freshEvents) byId.set(e.id, e);
   scheduleCache = [...byId.values()];
-  const combined = new Map(freshEvents.map((e) => [e.id, e]));
-  for (const e of freshSupplemental) combined.set(e.id, e);
+  const combined = new Map(freshSupplemental.map((e) => [e.id, e]));
+  for (const e of freshEvents) combined.set(e.id, e);
   return [...combined.values()];
 }
 function hasTeamData(e) {
@@ -557,6 +557,7 @@ async function getCompletedEventsForTournament(tournamentId) {
         .filter((e) => isOnOrAfterCutoff(e.startTime))
         .map((e) => {
           const bestOf = e.match && e.match.strategy ? e.match.strategy.count : null;
+          const teams = e.match && e.match.teams ? deriveMissingOutcomes(e.match.teams.map(normalizeTeam), bestOf) : [];
           return {
             id: e.match ? e.match.id : e.id,
             startTime: e.startTime,
@@ -564,9 +565,10 @@ async function getCompletedEventsForTournament(tournamentId) {
             blockName: e.blockName,
             bestOf,
             league: e.league ? normalizeLeague(e.league) : null,
-            teams: e.match && e.match.teams ? deriveMissingOutcomes(e.match.teams.map(normalizeTeam), bestOf) : [],
+            teams,
           };
-        });
+        })
+        .filter((e) => seriesOutcomeDecided(e.teams));
     } catch {
       return [];
     }
