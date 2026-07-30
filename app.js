@@ -1962,9 +1962,8 @@ function isPlayableStream(s) {
 
 const HIGHLIGHT_CHANNELS = ["oplolreplay", "OniviaHighlights"];
 function highlightsChannelSearchUrl(channel, league, teams) {
-  const teamNames = (teams || []).map((t) => t.name || t.code).filter(Boolean).join(" vs ");
-  const query = `${league?.name || ""} ${teamNames}`.trim();
-  return `https://www.youtube.com/@${channel}/search?query=${encodeURIComponent(query)}`;
+  const teamCodes = (teams || []).map((t) => t.code || t.name).filter(Boolean).join(" vs ");
+  return `https://www.youtube.com/@${channel}/search?query=${encodeURIComponent(teamCodes)}`;
 }
 function highlightsSearchLinksHtml(league, teams) {
   return HIGHLIGHT_CHANNELS.map(
