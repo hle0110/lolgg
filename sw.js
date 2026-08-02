@@ -1,6 +1,6 @@
 
 
-const CACHE_NAME = "lolgg-shell-v33";
+const CACHE_NAME = "lolgg-shell-v35";
 const SHELL_FILES = [
   "./",
   "./index.html",

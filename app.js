@@ -67,13 +67,6 @@ const EWC_ARENA_STREAMS = [
 function isEwcLeague(league) {
   return !!(league && league.name && league.name.toLowerCase().includes("esports world cup"));
 }
-function isLplLeague(league) {
-  if (!league) return false;
-  const slug = (league.slug || "").trim().toLowerCase();
-  const name = (league.name || "").trim().toLowerCase();
-  return slug === "lpl" || name === "lpl";
-}
-const LPL_OFFICIAL_TWITCH_CHANNEL = "lplenglish";
 function ewcArenaStreamItems() {
   return EWC_ARENA_STREAMS.map((s) => ({ provider: "twitch", parameter: s.twitch, locale: s.name }));
 }
@@ -2789,8 +2782,10 @@ async function paintMatchPage(eventId, event) {
   const streams = isEwcLeague(league)
     ? pickStreams(detail.streams).filter((s) => providerName(s.provider) === "twitch")
     : pickStreams(detail.streams);
-  const allVods = (detail.games || []).flatMap((g) => g.vods || []);
-  const vods = pickStreams(allVods);
+  const gamesWithVods = (detail.games || [])
+    .map((g) => ({ number: g.number, vods: pickStreams(g.vods || []).filter(isPlayableVod) }))
+    .filter((g) => g.number && g.vods.length)
+    .sort((a, b) => a.number - b.number);
   let liveStreamItems = streams.filter(isPlayableStream);
   let streamFallbackHint = "";
   if (!liveStreamItems.length && isEwcLeague(league) && state === "inProgress") {
@@ -2806,9 +2801,15 @@ async function paintMatchPage(eventId, event) {
       liveStreamItems = ewcArenaStreamItems();
       streamFallbackHint = `<p class="hint">No per-match EWC stream link yet &ndash; pick whichever arena stage this match is on.</p>`;
     }
-  } else if (!liveStreamItems.length && isLplLeague(league) && state === "inProgress") {
-    liveStreamItems = [{ provider: "twitch", parameter: LPL_OFFICIAL_TWITCH_CHANNEL, locale: "LPL Official (EN)" }];
-    streamFallbackHint = `<p class="hint">No per-match LPL stream link yet &ndash; showing the official LPL English Twitch channel.</p>`;
+  } else if (!liveStreamItems.length && state === "inProgress") {
+    const knownLeagueTwitch = officialLeagueStreamEntry(league);
+    const officialTwitchLogin = knownLeagueTwitch
+      ? twitchLoginFromUrl((knownLeagueTwitch.links.find((l) => l.label === "Twitch") || {}).url)
+      : null;
+    if (officialTwitchLogin) {
+      liveStreamItems = [{ provider: "twitch", parameter: officialTwitchLogin, locale: `${league.name} Official` }];
+      streamFallbackHint = `<p class="hint">No per-match stream link yet &ndash; showing the official ${league.name} Twitch channel.</p>`;
+    }
   }
   let streamBlockHtml;
   if (state === "inProgress") {
@@ -2816,9 +2817,13 @@ async function paintMatchPage(eventId, event) {
     streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${streamFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
   } else if (state === "completed") {
 
-    const playableVods = vods.filter(isPlayableVod);
-    streamBlockHtml = playableVods.length
-      ? `<h3>Watch VOD</h3>${streamSectionHtml(playableVods, "vod")}`
+    streamBlockHtml = gamesWithVods.length
+      ? `<h3>Watch VOD</h3>${gamesWithVods
+          .map(
+            (g) =>
+              `<div class="vod-game-block"><h4 class="vod-game-title">Game ${g.number}</h4>${streamSectionHtml(g.vods, `vod-game-${g.number}`)}</div>`
+          )
+          .join("")}`
       : `<h3>Watch Highlights</h3><div class="no-stream">No official VOD link available for this match.</div>${highlightsSearchLinksHtml(league, teams)}`;
   } else {
     const when = startTime
@@ -2893,7 +2898,9 @@ async function paintMatchPage(eventId, event) {
   const icsBtn = matchMainEl.querySelector("#match-ics-btn");
   if (icsBtn && event) icsBtn.addEventListener("click", () => downloadIcsForEvent(event));
   if (state === "inProgress" && liveStreamItems.length) wireStreamSection(matchMainEl, liveStreamItems, "live");
-  if (state === "completed" && vods.length) wireStreamSection(matchMainEl, vods, "vod");
+  if (state === "completed") {
+    for (const g of gamesWithVods) wireStreamSection(matchMainEl, g.vods, `vod-game-${g.number}`);
+  }
   if (state === "inProgress") loadCostreamStatuses(matchMainEl, true, teams);
   if (state === "unstarted" && startTime) startMatchPageCountdown(startTime);
   else stopMatchPageCountdown();
