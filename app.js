@@ -488,7 +488,7 @@ async function getLive(leagueIds) {
   return events.filter((e) => e.league && leagueIds.includes(e.league.id));
 }
 function normalizeVod(v) {
-  return { provider: v.provider, parameter: v.parameter, locale: v.locale };
+  return { provider: v.provider, parameter: v.parameter, locale: v.locale, offset: typeof v.offset === "number" ? v.offset : null };
 }
 async function getEventDetails(id) {
   return cached(`event:${id}`, 15 * 1000, async () => {
@@ -1922,20 +1922,43 @@ function embedUrlForStream(stream) {
   }
   return null;
 }
-function watchUrlFor(item) {
+function vodSeekSeconds(item) {
+  return typeof item.offset === "number" && item.offset > 0 ? Math.floor(item.offset / 1000) : 0;
+}
+function twitchTimeParam(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h}h${m}m${s}s`;
+}
+function watchUrlFor(item, kind) {
   const provider = providerName(item.provider);
-  if (provider === "twitch") return `https://twitch.tv/${item.parameter}`;
-  if (provider === "youtube") return `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
+  const seekSeconds = vodSeekSeconds(item);
+  const isVod = !!kind && kind !== "live";
+  if (provider === "twitch") {
+    if (isVod) {
+      const base = `https://www.twitch.tv/videos/${item.parameter}`;
+      return seekSeconds ? `${base}?t=${twitchTimeParam(seekSeconds)}` : base;
+    }
+    return `https://twitch.tv/${item.parameter}`;
+  }
+  if (provider === "youtube") {
+    const base = `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
+    return seekSeconds ? `${base}&t=${seekSeconds}s` : base;
+  }
   return null;
 }
 function embedUrlForVod(vod) {
   const parentHost = window.location.hostname || "localhost";
   const provider = providerName(vod.provider);
+  const seekSeconds = vodSeekSeconds(vod);
   if (provider === "twitch") {
-    return `https://player.twitch.tv/?video=${encodeURIComponent(vod.parameter)}&parent=${parentHost}`;
+    const base = `https://player.twitch.tv/?video=${encodeURIComponent(vod.parameter)}&parent=${parentHost}`;
+    return seekSeconds ? `${base}&time=${twitchTimeParam(seekSeconds)}` : base;
   }
   if (provider === "youtube") {
-    return `https://www.youtube.com/embed/${encodeURIComponent(extractYoutubeId(vod.parameter))}`;
+    const base = `https://www.youtube.com/embed/${encodeURIComponent(extractYoutubeId(vod.parameter))}`;
+    return seekSeconds ? `${base}?start=${seekSeconds}` : base;
   }
   return null;
 }
@@ -1994,7 +2017,7 @@ function streamSectionHtml(items, kind) {
     return `<div class="no-stream">${kind === "live" ? "No official stream link available for this match yet." : "No VOD available yet."}</div>`;
   }
   const first = items[0];
-  const firstWatchUrl = watchUrlFor(first);
+  const firstWatchUrl = watchUrlFor(first, kind);
   const localeButtons =
     items.length > 1
       ? `<div class="locale-switch">${items
@@ -2053,7 +2076,7 @@ function wireStreamSection(container, items, kind) {
       state.idx = Number(btn.dataset.idx);
       const item = items[state.idx];
       const watchWrap = container.querySelector(`#${kind}-watch-link-wrap`);
-      const watchUrl = watchUrlFor(item);
+      const watchUrl = watchUrlFor(item, kind);
       if (watchWrap) {
         watchWrap.innerHTML = watchUrl
           ? `<a class="watch-link" href="${watchUrl}" target="_blank" rel="noopener">If the player above doesn't load, watch on ${providerDisplayName(item.provider)} directly ↗</a>`
