@@ -832,22 +832,6 @@ a.team-card:hover {
   letter-spacing: 0.5px;
   margin: 24px 0 8px;
 }
-.vod-game-block {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.vod-game-block:first-of-type {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
-.vod-game-title {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 6px;
-}
 .match-page .hint {
   font-size: 11px;
   color: var(--muted);

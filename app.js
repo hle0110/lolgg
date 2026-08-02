@@ -488,7 +488,7 @@ async function getLive(leagueIds) {
   return events.filter((e) => e.league && leagueIds.includes(e.league.id));
 }
 function normalizeVod(v) {
-  return { provider: v.provider, parameter: v.parameter, locale: v.locale, offset: typeof v.offset === "number" ? v.offset : null };
+  return { provider: v.provider, parameter: v.parameter, locale: v.locale };
 }
 async function getEventDetails(id) {
   return cached(`event:${id}`, 15 * 1000, async () => {
@@ -1922,43 +1922,24 @@ function embedUrlForStream(stream) {
   }
   return null;
 }
-function vodSeekSeconds(item) {
-  return typeof item.offset === "number" && item.offset > 0 ? Math.floor(item.offset / 1000) : 0;
-}
-function twitchTimeParam(totalSeconds) {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h}h${m}m${s}s`;
-}
 function watchUrlFor(item, kind) {
   const provider = providerName(item.provider);
-  const seekSeconds = vodSeekSeconds(item);
   const isVod = !!kind && kind !== "live";
   if (provider === "twitch") {
-    if (isVod) {
-      const base = `https://www.twitch.tv/videos/${item.parameter}`;
-      return seekSeconds ? `${base}?t=${twitchTimeParam(seekSeconds)}` : base;
-    }
+    if (isVod) return `https://www.twitch.tv/videos/${item.parameter}`;
     return `https://twitch.tv/${item.parameter}`;
   }
-  if (provider === "youtube") {
-    const base = `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
-    return seekSeconds ? `${base}&t=${seekSeconds}s` : base;
-  }
+  if (provider === "youtube") return `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
   return null;
 }
 function embedUrlForVod(vod) {
   const parentHost = window.location.hostname || "localhost";
   const provider = providerName(vod.provider);
-  const seekSeconds = vodSeekSeconds(vod);
   if (provider === "twitch") {
-    const base = `https://player.twitch.tv/?video=${encodeURIComponent(vod.parameter)}&parent=${parentHost}`;
-    return seekSeconds ? `${base}&time=${twitchTimeParam(seekSeconds)}` : base;
+    return `https://player.twitch.tv/?video=${encodeURIComponent(vod.parameter)}&parent=${parentHost}`;
   }
   if (provider === "youtube") {
-    const base = `https://www.youtube.com/embed/${encodeURIComponent(extractYoutubeId(vod.parameter))}`;
-    return seekSeconds ? `${base}?start=${seekSeconds}` : base;
+    return `https://www.youtube.com/embed/${encodeURIComponent(extractYoutubeId(vod.parameter))}`;
   }
   return null;
 }
@@ -2805,10 +2786,8 @@ async function paintMatchPage(eventId, event) {
   const streams = isEwcLeague(league)
     ? pickStreams(detail.streams).filter((s) => providerName(s.provider) === "twitch")
     : pickStreams(detail.streams);
-  const gamesWithVods = (detail.games || [])
-    .map((g) => ({ number: g.number, vods: pickStreams(g.vods || []).filter(isPlayableVod) }))
-    .filter((g) => g.number && g.vods.length)
-    .sort((a, b) => a.number - b.number);
+  const allVods = (detail.games || []).flatMap((g) => g.vods || []);
+  const vods = pickStreams(allVods);
   let liveStreamItems = streams.filter(isPlayableStream);
   let streamFallbackHint = "";
   if (!liveStreamItems.length && isEwcLeague(league) && state === "inProgress") {
@@ -2840,13 +2819,9 @@ async function paintMatchPage(eventId, event) {
     streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${streamFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
   } else if (state === "completed") {
 
-    streamBlockHtml = gamesWithVods.length
-      ? `<h3>Watch VOD</h3>${gamesWithVods
-          .map(
-            (g) =>
-              `<div class="vod-game-block"><h4 class="vod-game-title">Game ${g.number}</h4>${streamSectionHtml(g.vods, `vod-game-${g.number}`)}</div>`
-          )
-          .join("")}`
+    const playableVods = vods.filter(isPlayableVod);
+    streamBlockHtml = playableVods.length
+      ? `<h3>Watch VOD</h3>${streamSectionHtml(playableVods, "vod")}`
       : `<h3>Watch Highlights</h3><div class="no-stream">No official VOD link available for this match.</div>${highlightsSearchLinksHtml(league, teams)}`;
   } else {
     const when = startTime
@@ -2921,9 +2896,7 @@ async function paintMatchPage(eventId, event) {
   const icsBtn = matchMainEl.querySelector("#match-ics-btn");
   if (icsBtn && event) icsBtn.addEventListener("click", () => downloadIcsForEvent(event));
   if (state === "inProgress" && liveStreamItems.length) wireStreamSection(matchMainEl, liveStreamItems, "live");
-  if (state === "completed") {
-    for (const g of gamesWithVods) wireStreamSection(matchMainEl, g.vods, `vod-game-${g.number}`);
-  }
+  if (state === "completed" && vods.length) wireStreamSection(matchMainEl, vods, "vod");
   if (state === "inProgress") loadCostreamStatuses(matchMainEl, true, teams);
   if (state === "unstarted" && startTime) startMatchPageCountdown(startTime);
   else stopMatchPageCountdown();
