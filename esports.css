@@ -206,6 +206,7 @@
   margin-bottom: 10px;
 }
 .team-card {
+  position: relative;
   background: var(--tint-weak);
   border-radius: 8px;
   padding: 10px;
@@ -309,6 +310,7 @@ a.team-card:hover {
   padding: 12px 0;
 }
 .tabs {
+  overflow-x: auto;
   max-width: 1100px;
   margin: 0 auto;
   padding: 4px 20px 0;
@@ -333,9 +335,6 @@ a.team-card:hover {
 .tab-btn.active {
   color: var(--gold);
   border-bottom-color: var(--gold);
-}
-.tabs {
-  overflow-x: auto;
 }
 .live-grid {
   display: grid;
@@ -1613,9 +1612,6 @@ a.bracket-match:hover {
 }
 .favorite-star:hover {
   color: var(--gold-alt);
-}
-.team-card {
-  position: relative;
 }
 .team-card-star {
   position: absolute;

@@ -958,8 +958,8 @@ function bracketSectionSide(name) {
 }
 function standingsTableRowHtml(ordinal, t) {
   const teamCell = t.code
-    ? `<a class="standings-team-link" href="#/team/${encodeURIComponent(t.code)}">${teamLogoHtml(t)}<span class="standings-team-name">${t.name || t.code}</span></a>`
-    : `${teamLogoHtml(t)}<span class="standings-team-name">${t.name || "TBD"}</span>`;
+    ? `<a class="standings-team-link" href="#/team/${encodeURIComponent(t.code)}">${teamLogoHtml(t)}<span class="standings-team-name">${escapeHtml(t.name || t.code)}</span></a>`
+    : `${teamLogoHtml(t)}<span class="standings-team-name">${escapeHtml(t.name || "TBD")}</span>`;
   return `
     <tr>
       <td class="standings-rank">${ordinal ?? ""}</td>
@@ -1484,13 +1484,28 @@ function shortTeamLabel(team) {
   return normalized.slice(0, 4).toUpperCase();
 }
 
+function escapeHtml(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+function safeImageUrl(url) {
+  const value = String(url || "").trim();
+  if (/^https?:\/\//i.test(value)) return escapeHtml(value);
+  return "";
+}
 function teamLogoHtml(team) {
-  if (team.image) {
-    const label = team.name || team.code || "Team";
-    const fallback = teamInitials(team.name || team.code);
-    return `<img src="${team.image}" alt="${label}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="team-avatar-fallback" style="display:none">${fallback}</div>`;
+  const safeSrc = safeImageUrl(team.image);
+  if (safeSrc) {
+    const label = escapeHtml(team.name || team.code || "Team");
+    const fallback = escapeHtml(teamInitials(team.name || team.code));
+    return `<img src="${safeSrc}" alt="${label}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="team-avatar-fallback" style="display:none">${fallback}</div>`;
   }
-  return `<div class="team-avatar-fallback">${teamInitials(team.name || team.code)}</div>`;
+  return `<div class="team-avatar-fallback">${escapeHtml(teamInitials(team.name || team.code))}</div>`;
 }
 
 function teamHtml(team, hideScore) {
@@ -1498,8 +1513,8 @@ function teamHtml(team, hideScore) {
   return `
     <div class="esports-team ${team.outcome === "win" ? "won" : team.outcome === "loss" ? "lost" : ""}">
       ${teamLogoHtml(team)}
-      <div class="team-name">${team.name || team.code || "TBD"}</div>
-      ${showScore ? `<div class="game-wins">${team.gameWins}</div>` : ""}
+      <div class="team-name">${escapeHtml(team.name || team.code || "TBD")}</div>
+      ${showScore ? `<div class="game-wins">${escapeHtml(team.gameWins)}</div>` : ""}
     </div>`;
 }
 function resolveLeagueImage(league) {
@@ -1513,7 +1528,10 @@ function leagueLogoHtml(league, extraClass) {
   if (!img) return "";
   const cls = `league-logo${extraClass ? ` ${extraClass}` : ""}`;
 
-  return `<img class="${cls}" src="${img}" alt="${league?.name || ""}" title="${league?.name || ""}" loading="lazy" onerror="this.style.display='none';" />`;
+  const safeSrc = safeImageUrl(img);
+  if (!safeSrc) return "";
+  const safeName = escapeHtml(league?.name || "");
+  return `<img class="${cls}" src="${safeSrc}" alt="${safeName}" title="${safeName}" loading="lazy" onerror="this.style.display='none';" />`;
 }
 function matchCardHtml(event) {
   const stateLabel = event.state === "inProgress" ? "Ongoing" : event.state === "completed" ? "Final" : "";
@@ -2858,7 +2876,7 @@ async function paintMatchPage(eventId, event) {
   const modalHeaderInner = `
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
-        <div class="modal-league">${league?.name || ""}${event?.blockName ? ` · ${event.blockName}` : ""}</div>
+        <div class="modal-league">${escapeHtml(league?.name || "")}${event?.blockName ? ` · ${escapeHtml(event.blockName)}` : ""}</div>
         <div class="modal-state">${state === "inProgress" ? "Ongoing" : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
       </div>`;
   matchMainEl.innerHTML = `
@@ -3006,7 +3024,7 @@ function teamsGridHtml(teams) {
   if (!teams.length) return `<p class="idle">No team list available yet for this tournament.</p>`;
   return `<div class="teams-grid">${teams
     .map((t) => {
-      const inner = `${t.code ? favoriteStarHtml(t.code, "team-card-star") : ""}${teamLogoHtml(t)}<div class="team-name">${t.name || t.code || "TBD"}</div>`;
+      const inner = `${t.code ? favoriteStarHtml(t.code, "team-card-star") : ""}${teamLogoHtml(t)}<div class="team-name">${escapeHtml(t.name || t.code || "TBD")}</div>`;
       return t.code
         ? `<a class="team-card" href="#/team/${encodeURIComponent(t.code)}">${inner}</a>`
         : `<div class="team-card">${inner}</div>`;
@@ -3538,7 +3556,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
       <a class="back-link" href="#/">&larr; Back to schedule</a>
       <div class="modal-header">
         ${leagueLogoHtml(league, "modal-league-logo")}
-        <div><div class="modal-league">${league?.name || "Tournament"}</div></div>
+        <div><div class="modal-league">${escapeHtml(league?.name || "Tournament")}</div></div>
       </div>
       <p class="idle">No tournament data available right now.</p>
       <a class="watch-link" href="${liquipediaSearchUrl}" target="_blank" rel="noopener">Look it up on Liquipedia ↗</a>
@@ -3552,7 +3570,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
     <div class="modal-header">
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
-        <div class="modal-league">${league?.name || "Tournament"}</div>
+        <div class="modal-league">${escapeHtml(league?.name || "Tournament")}</div>
         <div class="modal-state">${resolvedTournamentDateRangeLabel(league, tournament)}</div>
       </div>
     </div>
@@ -3655,7 +3673,7 @@ async function renderTeamPage(teamCode) {
     <div class="modal-header">
       ${teamLogoHtml(teamForLogo)}
       <div>
-        <div class="modal-league">${name} ${favoriteStarHtml(teamCode, "team-header-star")}</div>
+        <div class="modal-league">${escapeHtml(name)} ${favoriteStarHtml(teamCode, "team-header-star")}</div>
         ${socialLinks}
       </div>
     </div>
@@ -3667,7 +3685,7 @@ async function renderTeamPage(teamCode) {
     }
     <h3>Recent Form <span class="hint">(last 20 results)</span></h3>
     <div class="recent-form-grid">
-      <div class="recent-form-row"><span class="form-team">${name}</span><span class="form-pips">${recentFormHtml(teamCode)}</span></div>
+      <div class="recent-form-row"><span class="form-team">${escapeHtml(name)}</span><span class="form-pips">${recentFormHtml(teamCode)}</span></div>
     </div>
     <h3>Game History <span class="hint">(scores and VODs)</span></h3>
     ${teamRecentGamesHtml(teamCode)}

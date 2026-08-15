@@ -1,6 +1,6 @@
 
 
-const CACHE_NAME = "lolgg-shell-v37";
+const CACHE_NAME = "lolgg-shell-v38";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -41,10 +41,18 @@ self.addEventListener("fetch", (event) => {
     fetch(req)
       .then((res) => {
 
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
+        if (res && res.ok && res.type === "basic") {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(req).then((cached) => cached || caches.match("./index.html")))
+      .catch(() =>
+        caches.match(req).then((cached) => {
+          if (cached) return cached;
+          if (req.mode === "navigate") return caches.match("./index.html");
+          return Response.error();
+        })
+      )
   );
 });
