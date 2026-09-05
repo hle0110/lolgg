@@ -948,14 +948,29 @@ async function buildFullTeamLookup(standings) {
   }
   return lookup;
 }
-function bracketSectionSide(name) {
+function bracketLane(name) {
   const n = (name || "").toLowerCase();
-  if (n.includes("upper")) return "upper";
-  if (n.includes("lower")) return "lower";
-  if (n.includes("quarterfinal") || n.includes("semifinal")) return "other";
-  if (n.includes("final")) return "final";
-  return "other";
+  if (/play[\s_-]*in|qualifying|qualifier/.test(n)) return "playin";
+  if (/upper|winner(?:['’]?s)?['’]?[\s_-]*(bracket|round|final)|\bwb\b/.test(n)) return "upper";
+  if (/lower|loser(?:['’]?s)?['’]?[\s_-]*(bracket|round|final)|\blb\b|elimination/.test(n)) return "lower";
+  if (/grand[\s_-]*final|^final(s)?$|3rd[\s_-]*place|third[\s_-]*place/.test(n)) return "final";
+  return "main";
 }
+const BRACKET_LANE_ORDER = ["playin", "upper", "lower", "final", "main"];
+const BRACKET_LANE_LABELS = {
+  playin: "Play-In",
+  upper: "Upper Bracket",
+  lower: "Lower Bracket",
+  final: "Finals",
+  main: "Bracket",
+};
+const BRACKET_LANE_HINTS = {
+  playin: "Winners here claim the last spots in the main bracket.",
+  upper: "Win and you stay here. Lose once and you drop to the Lower Bracket.",
+  lower: "Elimination round – one more loss and the run is over.",
+  final: "The last match of the tournament decides the title.",
+  main: "",
+};
 function standingsTableRowHtml(ordinal, t) {
   const teamCell = t.code
     ? `<a class="standings-team-link" href="#/team/${encodeURIComponent(t.code)}">${teamLogoHtml(t)}<span class="standings-team-name">${escapeHtml(t.name || t.code)}</span></a>`
@@ -3379,10 +3394,18 @@ function tournamentBracketByBlockHtml(events) {
 
   const semifinalsGroup = ordered.find((o) => /semifinal/i.test(o.name));
   const grandFinalGroup = ordered.find((o) => o.name === "Grand Final");
-  return `<div class="bracket-columns">${ordered
+  const lastLaneGroup = (lane) => {
+    const inLane = ordered.filter((o) => bracketLane(o.name) === lane);
+    return inLane.length ? inLane[inLane.length - 1] : null;
+  };
+  const lastUpperGroup = lastLaneGroup("upper");
+  const lastLowerGroup = lastLaneGroup("lower");
+  const columnsHtml = ordered
     .map((g, colIdx) => {
       const isSemifinals = /semifinal/i.test(g.name);
       const isFinalsSplit = g.name === "3rd Place Match" || g.name === "Grand Final";
+      const isDoubleElimFinal =
+        bracketLane(g.name) === "final" && lastUpperGroup && lastLowerGroup && g.events.length === 1;
 
       const nextEvents = isSemifinals && grandFinalGroup
         ? grandFinalGroup.events
@@ -3397,6 +3420,13 @@ function tournamentBracketByBlockHtml(events) {
           const advanceInfo = winner ? findNextRoundOpponentInfo(winner, nextEvents) : null;
           let feeders = prevEvents ? [prevEvents[2 * i] || null, prevEvents[2 * i + 1] || null] : null;
 
+          if (isDoubleElimFinal) {
+            feeders = [
+              lastUpperGroup.events[lastUpperGroup.events.length - 1] || null,
+              lastLowerGroup.events[lastLowerGroup.events.length - 1] || null,
+            ];
+          }
+
           if (isSemifinals && prevEvents && isEwcLeague(e.league)) {
             const ewcFeeders = ewcSemifinalFeeders(e, prevEvents);
             if (ewcFeeders) feeders = ewcFeeders;
@@ -3406,12 +3436,41 @@ function tournamentBracketByBlockHtml(events) {
           return bracketColumnMatchHtml(e, advanceInfo, feeders, feederOutcome);
         })
         .join("");
-      return `<div class="bracket-column">
-        <h4 class="bracket-column-title">${g.name}</h4>
+      const roundNo = g.events.length;
+      return {
+        lane: bracketLane(g.name),
+        html: `<div class="bracket-column">
+        <h4 class="bracket-column-title">${escapeHtml(g.name)}</h4>
+        <div class="bracket-column-count">${roundNo} ${roundNo === 1 ? "match" : "matches"}</div>
         <div class="bracket-column-matches">${matchesHtml}</div>
-      </div>`;
+      </div>`,
+      };
+    });
+
+  const lanesPresent = [...new Set(columnsHtml.map((c) => c.lane))];
+  const isDoubleElim = lanesPresent.some((l) => l === "upper" || l === "lower") && lanesPresent.length > 1;
+  if (!isDoubleElim) {
+    return `<div class="bracket-columns">${columnsHtml.map((c) => c.html).join("")}</div>`;
+  }
+
+  const laneSections = BRACKET_LANE_ORDER.filter((lane) => lanesPresent.includes(lane))
+    .map((lane) => {
+      const cols = columnsHtml.filter((c) => c.lane === lane);
+      const hint = BRACKET_LANE_HINTS[lane];
+      return `<section class="bracket-lane bracket-lane-${lane}">
+        <div class="bracket-lane-header">
+          <h4 class="bracket-lane-title">${BRACKET_LANE_LABELS[lane]}</h4>
+          ${hint ? `<p class="bracket-lane-hint">${hint}</p>` : ""}
+        </div>
+        <div class="bracket-columns">${cols.map((c) => c.html).join("")}</div>
+      </section>`;
     })
-    .join("")}</div>`;
+    .join("");
+
+  return `<div class="bracket-board">
+    <p class="bracket-legend">Double elimination &ndash; a team is only knocked out after losing twice. Winners are highlighted in gold; scroll a row sideways to follow it round by round.</p>
+    ${laneSections}
+  </div>`;
 }
 
 function externalBracketFallbackHtml(league) {
