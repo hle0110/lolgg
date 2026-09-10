@@ -1,15 +1,19 @@
 # lolgg
 
-One tab, no more doomscrolling five sites just to see if your team took the L.
+Everything happening in LoL esports, in one place.
 
-**What's here:**
-- Live scores while a game is happening
-- The full matches schedule, upcoming, ongoing, and completed
-- Finished games with VODs
-- Every tournament's bracket, standings, and teams
-- Watch official broadcasts or your favorite costreamers
-- Search for any team or league, favorite your teams, and see head-to-head history
+**[hle0110.github.io/lolgg](https://hle0110.github.io/lolgg/)**
 
-**What's *not* here:** ads, logins, cookie banners, tracking, or anything asking for your personal info. Curious what powers this thing? [Click here](https://hle0110.github.io/lolgg/credits.html).
+* Live scores, schedules, and VODs
+* Tournament brackets, standings, and teams
+* Official streams and costreams, embedded
+* Search and favorite teams, with head to head history
 
-Check it out live: **https://hle0110.github.io/lolgg/**
+No ads, no logins, no tracking. Data comes from lolesports.com's public API ([credits](https://hle0110.github.io/lolgg/credits.html)).
+
+© 2026 lolgg. All rights reserved.
+[Terms](https://hle0110.github.io/lolgg/terms.html) ·
+[Privacy](https://hle0110.github.io/lolgg/privacy.html) ·
+[Contact](https://hle0110.github.io/lolgg/contact.html)
+
+Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.

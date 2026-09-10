@@ -231,6 +231,30 @@ footer a {
 .legal-page a {
   color: var(--gold);
 }
+.legal-page ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.legal-page li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 6px;
+}
+.legal-page li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.legal-page .legal-updated {
+  color: var(--muted);
+  font-size: 13px;
+}
 .contact-form {
   display: flex;
   flex-direction: column;
