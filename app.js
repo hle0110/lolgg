@@ -155,7 +155,7 @@ async function officialStreamLinksHtml(league, startTime) {
     });
     const links = ordered.map(
       (l) =>
-        `<a class="watch-link ${l.label.toLowerCase() === primary ? "watch-link-primary" : ""}" href="${l.url}" target="_blank" rel="noopener">${league.name || league.slug || "Official"} ${l.label} ↗</a>`
+        `<a class="watch-link ${l.label.toLowerCase() === primary ? "watch-link-primary" : ""}" href="${l.url}" target="_blank" rel="noopener">${escapeHtml(league.name || league.slug || "Official")} ${l.label} ↗</a>`
     );
     const statusHtml = status ? `<p class="hint stream-priority-hint">${status}</p>` : "";
     return `${statusHtml}<div class="watch-links-row">${links.join("")}</div>`;
@@ -1003,11 +1003,11 @@ function standingsHtml(standings, providedLookup) {
             }
           }
           if (!rankingsHtml) return null;
-          return `<div class="standings-section">${section.name ? `<h4>${section.name}</h4>` : ""}${rankingsHtml}</div>`;
+          return `<div class="standings-section">${section.name ? `<h4>${escapeHtml(section.name)}</h4>` : ""}${rankingsHtml}</div>`;
         })
         .filter(Boolean);
       if (!renderedSections.length) return "";
-      return `<div class="standings-stage">${stage.name ? `<h4 class="stage-name">${stage.name}</h4>` : ""}${renderedSections.join("")}</div>`;
+      return `<div class="standings-stage">${stage.name ? `<h4 class="stage-name">${escapeHtml(stage.name)}</h4>` : ""}${renderedSections.join("")}</div>`;
     })
     .filter(Boolean)
     .join("");
@@ -1326,7 +1326,7 @@ function initSiteSearch() {
     resultsEl.innerHTML = results
       .map(
         (r) =>
-          `<a class="site-search-result" role="option" href="${siteSearchResultHref(r)}" data-close-search="1"><span>${r.label}</span><span class="hint">${r.hint}</span></a>`
+          `<a class="site-search-result" role="option" href="${siteSearchResultHref(r)}" data-close-search="1"><span>${escapeHtml(r.label)}</span><span class="hint">${escapeHtml(r.hint)}</span></a>`
       )
       .join("");
     resultsEl.classList.add("open");
@@ -1554,7 +1554,7 @@ function matchCardHtml(event) {
   return `
     <a class="schedule-row ${event.state}" href="#/match/${encodeURIComponent(event.id)}">
       ${leagueLogoHtml(event.league)}
-      <div class="league-name">${event.league?.name || ""}${event.blockName ? ` · ${event.blockName}` : ""}</div>
+      <div class="league-name">${escapeHtml(event.league?.name || "")}${event.blockName ? ` · ${escapeHtml(event.blockName)}` : ""}</div>
       <div class="match-teams">${event.teams.map((t) => teamHtml(t, event.state === "unstarted")).join('<div class="vs">vs</div>')}</div>
       <div class="match-meta">
         ${stateLabel ? `<span class="state-badge ${event.state}">${stateLabel}</span>` : ""}
@@ -1660,7 +1660,7 @@ async function loadLeagueFilter() {
       ? `<button class="league-pill notify-toggle-pill ${notifyOn ? "active" : ""}" data-notify-toggle="1" aria-pressed="${notifyOn ? "true" : "false"}">Notify Me</button>`
       : "") +
     `<button class="league-pill active" data-id="__all__" aria-pressed="true">All Leagues</button>` +
-    sorted.map((l) => `<button class="league-pill" data-id="${l.id}" aria-pressed="false">${l.name}</button>`).join("");
+    sorted.map((l) => `<button class="league-pill" data-id="${escapeHtml(l.id)}" aria-pressed="false">${escapeHtml(l.name)}</button>`).join("");
   const myTeamsBtn = leagueFilterEl.querySelector(".my-teams-pill");
   if (myTeamsBtn) {
     myTeamsBtn.addEventListener("click", () => {
@@ -1785,7 +1785,7 @@ async function loadTournamentsTab(silent = false) {
             ({ league, tournament }) => `
             <a class="tournament-card" href="#/tournament/${encodeURIComponent(league.id)}/${encodeURIComponent(tournament.id)}">
               ${leagueLogoHtml(league, "tournament-card-logo")}
-              <div class="tournament-card-name">${league.name}</div>
+              <div class="tournament-card-name">${escapeHtml(league.name)}</div>
               <div class="tournament-card-dates hint">${resolvedTournamentDateRangeLabel(league, tournament)}</div>
             </a>`
           )
@@ -2037,7 +2037,7 @@ function streamSectionHtml(items, kind) {
       ? `<div class="locale-switch">${items
           .map(
             (s, idx) =>
-              `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerDisplayName(s.provider)} (${s.locale})</button>`
+              `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerDisplayName(s.provider)} (${escapeHtml(s.locale)})</button>`
           )
           .join("")}</div>`
       : "";
@@ -2135,7 +2135,7 @@ function costreamBlockHtml(liveOnes) {
       ? `<div class="costream-select-row">
           <label for="costream-select" class="costream-select-label">Choose stream</label>
           <select id="costream-select" class="costream-select">
-            ${liveOnes.map((c, idx) => `<option value="${idx}">${c.name}</option>`).join("")}
+            ${liveOnes.map((c, idx) => `<option value="${idx}">${escapeHtml(c.name)}</option>`).join("")}
           </select>
         </div>`
       : "";
@@ -2375,7 +2375,7 @@ function playerRowHtml(participant, meta, side, items, ddragonVersion, goldDiff)
       <div class="liveplayer-row ${side}">
         ${champIconHtml}
         <div class="liveplayer-id">
-          <span class="liveplayer-champ">${champion}</span>
+          <span class="liveplayer-champ">${escapeHtml(champion)}</span>
           <span class="liveplayer-name">${summoner}</span>
         </div>
         ${hpPct !== null ? `<div class="liveplayer-hp"><div class="liveplayer-hp-fill ${side}" style="width:${hpPct}%"></div></div>` : ""}
@@ -2792,7 +2792,7 @@ async function refreshMatchPage(eventId, event) {
   const formSlot = matchMainEl.querySelector("#recent-form-slot");
   if (formSlot) {
     formSlot.innerHTML = `
-      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${t.code || t.name}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
+      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
     `;
   }
   const predictionSlot = matchMainEl.querySelector("#prediction-slot");
@@ -2843,7 +2843,7 @@ async function paintMatchPage(eventId, event) {
       : null;
     if (officialTwitchLogin) {
       liveStreamItems = [{ provider: "twitch", parameter: officialTwitchLogin, locale: `${league.name} Official` }];
-      streamFallbackHint = `<p class="hint">No per-match stream link yet &ndash; showing the official ${league.name} Twitch channel.</p>`;
+      streamFallbackHint = `<p class="hint">No per-match stream link yet &ndash; showing the official ${escapeHtml(league.name)} Twitch channel.</p>`;
     }
   }
   let streamBlockHtml;
@@ -2920,7 +2920,7 @@ async function paintMatchPage(eventId, event) {
     }
     <h3>Recent Form <span class="hint">(last 20 results)</span></h3>
     <div id="recent-form-slot" class="recent-form-grid">
-      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${t.code || t.name}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
+      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
     </div>
     <div id="prediction-slot">${predictionHtml(teams, eventId)}</div>
     <div id="h2h-slot">${headToHeadHtml(teams, eventId)}</div>
@@ -3723,7 +3723,7 @@ async function renderTeamPage(teamCode) {
   const winRate = recentWinRate(teamCode, 20);
   const liquipediaSearchUrl = `https://liquipedia.net/leagueoflegends/Special:Search?search=${encodeURIComponent(name)}`;
   const socialLinks = [
-    details?.homeLeague?.name ? `<span class="hint">${details.homeLeague.name}${details.homeLeague.region ? ` · ${details.homeLeague.region}` : ""}</span>` : "",
+    details?.homeLeague?.name ? `<span class="hint">${escapeHtml(details.homeLeague.name)}${details.homeLeague.region ? ` · ${escapeHtml(details.homeLeague.region)}` : ""}</span>` : "",
   ]
     .filter(Boolean)
     .join("");
