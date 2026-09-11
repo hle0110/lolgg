@@ -3430,11 +3430,12 @@ function tournamentBracketByBlockHtml(events) {
       const prevEvents = isFinalsSplit && semifinalsGroup
         ? semifinalsGroup.events
         : colIdx > 0 ? ordered[colIdx - 1].events : null;
+      const feedsThisRound = !!prevEvents && prevEvents.length === g.events.length * 2;
       const matchesHtml = g.events
         .map((e, i) => {
           const winner = matchWinnerTeam(e);
           const advanceInfo = winner ? findNextRoundOpponentInfo(winner, nextEvents) : null;
-          let feeders = prevEvents ? [prevEvents[2 * i] || null, prevEvents[2 * i + 1] || null] : null;
+          let feeders = feedsThisRound ? [prevEvents[2 * i] || null, prevEvents[2 * i + 1] || null] : null;
 
           if (isDoubleElimFinal) {
             feeders = [
