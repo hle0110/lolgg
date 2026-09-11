@@ -948,27 +948,37 @@ async function buildFullTeamLookup(standings) {
   }
   return lookup;
 }
+const GENERIC_BRACKET_BLOCK_NAMES = ["playoffs", "playoff", "bracket", "matches", "knockouts", "knockout"];
+function isUsefulRoundName(name) {
+  const n = (name || "").trim().toLowerCase();
+  if (!n) return false;
+  if (isRegularSeasonBlockName(name)) return false;
+  return !GENERIC_BRACKET_BLOCK_NAMES.includes(n);
+}
 function bracketLane(name) {
   const n = (name || "").toLowerCase();
-  if (/play[\s_-]*in|qualifying|qualifier/.test(n)) return "playin";
+  if (/play[\s_-]*in/.test(n)) return "playin";
   if (/upper|winner(?:['’]?s)?['’]?[\s_-]*(bracket|round|final)|\bwb\b/.test(n)) return "upper";
   if (/lower|loser(?:['’]?s)?['’]?[\s_-]*(bracket|round|final)|\blb\b|elimination/.test(n)) return "lower";
+  if (/qualifier|qualifying/.test(n)) return "qualifier";
   if (/grand[\s_-]*final|^final(s)?$|3rd[\s_-]*place|third[\s_-]*place/.test(n)) return "final";
   return "main";
 }
-const BRACKET_LANE_ORDER = ["playin", "upper", "lower", "final", "main"];
+const BRACKET_LANE_ORDER = ["playin", "upper", "main", "lower", "final", "qualifier"];
 const BRACKET_LANE_LABELS = {
   playin: "Play-In",
   upper: "Upper Bracket",
   lower: "Lower Bracket",
   final: "Finals",
+  qualifier: "Regional Qualifier",
   main: "Bracket",
 };
 const BRACKET_LANE_HINTS = {
   playin: "Winners here claim the last spots in the main bracket.",
   upper: "Win and you stay here. Lose once and you drop to the Lower Bracket.",
-  lower: "Elimination round – one more loss and the run is over.",
+  lower: "Elimination round. One more loss and the run is over.",
   final: "The last match of the tournament decides the title.",
+  qualifier: "A separate run for the last spot at Worlds, played after the final.",
   main: "",
 };
 function standingsTableRowHtml(ordinal, t) {
@@ -3144,8 +3154,8 @@ async function getAllTournamentBracketEvents(leagueId, tournament, league, recen
 
     for (const e of recentGames) byId.set(e.id, e);
 
-    const haveTeamPair = (list, a, b) =>
-      list.some((e) => {
+    const eventsWithTeamPair = (list, a, b) =>
+      list.filter((e) => {
         const codes = (e.teams || []).map((t) => (t.code || "").toUpperCase()).filter(Boolean);
         return codes.includes(a) && codes.includes(b);
       });
@@ -3153,7 +3163,13 @@ async function getAllTournamentBracketEvents(leagueId, tournament, league, recen
     const scheduleSoFar = [...byId.values()];
     for (const e of standingsBracketEvents(standings, teamLookup, league)) {
       const codes = (e.teams || []).map((t) => (t.code || "").toUpperCase()).filter(Boolean);
-      if (codes.length === 2 && haveTeamPair(scheduleSoFar, codes[0], codes[1])) continue;
+      const pairMatches = codes.length === 2 ? eventsWithTeamPair(scheduleSoFar, codes[0], codes[1]) : [];
+      const target = (e.id && byId.get(e.id)) || (pairMatches.length === 1 ? pairMatches[0] : null);
+      if (target) {
+        if (isUsefulRoundName(e.blockName) && !isUsefulRoundName(target.blockName)) target.blockName = e.blockName;
+        continue;
+      }
+      if (pairMatches.length) continue;
       byId.set(e.id || `standings:${codes.join("-")}`, e);
     }
 
@@ -3453,13 +3469,15 @@ function tournamentBracketByBlockHtml(events) {
     return `<div class="bracket-columns">${columnsHtml.map((c) => c.html).join("")}</div>`;
   }
 
+  const impliedUpper = lanesPresent.includes("lower") && !lanesPresent.includes("upper");
   const laneSections = BRACKET_LANE_ORDER.filter((lane) => lanesPresent.includes(lane))
     .map((lane) => {
       const cols = columnsHtml.filter((c) => c.lane === lane);
-      const hint = BRACKET_LANE_HINTS[lane];
-      return `<section class="bracket-lane bracket-lane-${lane}">
+      const effective = lane === "main" && impliedUpper ? "upper" : lane;
+      const hint = BRACKET_LANE_HINTS[effective];
+      return `<section class="bracket-lane bracket-lane-${effective}">
         <div class="bracket-lane-header">
-          <h4 class="bracket-lane-title">${BRACKET_LANE_LABELS[lane]}</h4>
+          <h4 class="bracket-lane-title">${BRACKET_LANE_LABELS[effective]}</h4>
           ${hint ? `<p class="bracket-lane-hint">${hint}</p>` : ""}
         </div>
         <div class="bracket-columns">${cols.map((c) => c.html).join("")}</div>
