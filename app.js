@@ -1829,7 +1829,10 @@ async function loadTournamentsTab(silent = false) {
 async function eventIsGenuinelyLive(event) {
   try {
     const detail = await getEventDetails(event.id);
-    return detail.state === "inProgress";
+    if (detail.state === "inProgress") return true;
+    const knownStart = detail.startTime || (event && event.startTime) || null;
+    if (!knownStart) return false;
+    return computeEffectiveState(detail.state, detail.teams, knownStart) === "inProgress";
   } catch {
     return false;
   }
