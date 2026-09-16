@@ -987,7 +987,7 @@ const BRACKET_LANE_HINTS = {
   upper: "Win and you stay here. Lose once and you drop to the Lower Bracket.",
   lower: "Elimination round. One more loss and the run is over.",
   final: "The last match of the tournament decides the title.",
-  qualifier: "A separate run for the last spot at Worlds, played after the final.",
+  qualifier: "A separate run for the region's remaining Worlds spots, played after the final.",
   main: "",
 };
 function standingsTableRowHtml(ordinal, t) {
