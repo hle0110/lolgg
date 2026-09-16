@@ -964,6 +964,15 @@ function bracketLane(name) {
   if (/grand[\s_-]*final|^final(s)?$|3rd[\s_-]*place|third[\s_-]*place/.test(n)) return "final";
   return "main";
 }
+const POSTSEASON_TRAILING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+function eventInTournamentWindow(e, range) {
+  const t = new Date(e.startTime).getTime();
+  if (!Number.isFinite(t)) return false;
+  const start = startOfUtcDay(range.start);
+  const end = endOfUtcDay(range.end);
+  if (t >= start && t <= end) return true;
+  return bracketLane(e.blockName) === "qualifier" && t > end && t <= end + POSTSEASON_TRAILING_WINDOW_MS;
+}
 const BRACKET_LANE_ORDER = ["playin", "upper", "main", "lower", "final", "qualifier"];
 const BRACKET_LANE_LABELS = {
   playin: "Play-In",
@@ -3147,12 +3156,7 @@ async function getAllTournamentBracketEvents(leagueId, tournament, league, recen
       : tournament && tournament.startDate && tournament.endDate
       ? { start: tournament.startDate, end: tournament.endDate }
       : null;
-    const inRange = range
-      ? events.filter((e) => {
-          const t = new Date(e.startTime).getTime();
-          return t >= startOfUtcDay(range.start) && t <= endOfUtcDay(range.end);
-        })
-      : events;
+    const inRange = range ? events.filter((e) => eventInTournamentWindow(e, range)) : events;
     const byId = new Map(inRange.map((e) => [e.id, e]));
 
     for (const e of recentGames) byId.set(e.id, e);
@@ -3266,12 +3270,7 @@ async function getAllTournamentRecentGames(leagueId, tournament, league, recentG
       : tournament && tournament.startDate && tournament.endDate
       ? { start: tournament.startDate, end: tournament.endDate }
       : null;
-    const inRange = range
-      ? events.filter((e) => {
-          const t = new Date(e.startTime).getTime();
-          return t >= startOfUtcDay(range.start) && t <= endOfUtcDay(range.end);
-        })
-      : events;
+    const inRange = range ? events.filter((e) => eventInTournamentWindow(e, range)) : events;
     const scheduleCompleted = inRange.filter((e) => e.state === "completed");
     const byId = new Map(scheduleCompleted.map((e) => [e.id, e]));
 
