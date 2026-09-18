@@ -35,6 +35,7 @@ const MAJOR_LEAGUE_KEYWORDS = [
   "world championship", "worlds",
   "first stand",
   "esports world cup", "ewc",
+  "demacia",
   "masters",
 ];
 
