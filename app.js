@@ -200,6 +200,7 @@ async function resolveEwcStreamForMatch(teams) {
   }
   return null;
 }
+const SCHEDULE_CACHE_MS = 90 * 1000;
 const cache = new Map();
 function cached(key, ttlMs, fn) {
   const hit = cache.get(key);
@@ -444,7 +445,7 @@ async function getSchedule(leagueIds) {
   const key = `schedule:${(leagueIds || []).slice().sort().join(",")}`;
 
   const [events, supplemental] = await Promise.all([
-    cached(key, 20 * 1000, () => fetchScheduleFresh(leagueIds)),
+    cached(key, SCHEDULE_CACHE_MS, () => fetchScheduleFresh(leagueIds)),
     getSupplementalCompletedEvents(leagueIds).catch(() => []),
   ]);
 
