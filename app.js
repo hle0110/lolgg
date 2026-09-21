@@ -3323,8 +3323,8 @@ function teamSlotHtml(t, feederMatch, feederOutcome = "win", hideScore = false, 
       </div>`;
   }
   return `
-    <div class="bracket-match-team">
-      <span class="bracket-team-name">TBD</span>
+    <div class="bracket-match-team bracket-match-team-pending">
+      <span class="bracket-team-name bracket-team-name-pending">TBD</span>
     </div>`;
 }
 
@@ -3387,10 +3387,7 @@ function findNextRoundOpponentInfo(winnerTeam, nextColumnEvents) {
 }
 
 function tournamentBracketByBlockHtml(events) {
-  const withTeams = events.filter((e) => e.teams && e.teams.length && !isRegularSeasonBlockName(e.blockName));
-
-  const resolvedRoundNames = new Set(withTeams.filter((e) => !isUnresolvedMatch(e.teams)).map((e) => e.blockName || "Matches"));
-  const realEvents = withTeams.filter((e) => !isUnresolvedMatch(e.teams) || !resolvedRoundNames.has(e.blockName || "Matches"));
+  const realEvents = events.filter((e) => e.teams && e.teams.length && !isRegularSeasonBlockName(e.blockName));
   if (!realEvents.length) return "";
   const groups = new Map();
   for (const e of realEvents) {
