@@ -96,6 +96,22 @@ const LEAGUE_OFFICIAL_STREAMS = [
     { url: "https://www.youtube.com/@lolpacificen", label: "YouTube" },
     { url: "https://www.twitch.tv/lolpacificen/", label: "Twitch" },
   ] },
+  { match: "worlds", links: [
+    { url: "https://www.twitch.tv/riotgames", label: "Twitch" },
+    { url: "https://www.youtube.com/@lolesports", label: "YouTube" },
+  ] },
+  { match: "world championship", links: [
+    { url: "https://www.twitch.tv/riotgames", label: "Twitch" },
+    { url: "https://www.youtube.com/@lolesports", label: "YouTube" },
+  ] },
+  { match: "msi", links: [
+    { url: "https://www.twitch.tv/riotgames", label: "Twitch" },
+    { url: "https://www.youtube.com/@lolesports", label: "YouTube" },
+  ] },
+  { match: "first stand", links: [
+    { url: "https://www.twitch.tv/riotgames", label: "Twitch" },
+    { url: "https://www.youtube.com/@lolesports", label: "YouTube" },
+  ] },
 ];
 
 function officialLeagueStreamEntry(league) {
@@ -1531,8 +1547,8 @@ function escapeHtml(value) {
 }
 function safeImageUrl(url) {
   const value = String(url || "").trim();
-  if (/^https?:\/\//i.test(value)) return escapeHtml(value);
-  return "";
+  if (!/^https?:\/\//i.test(value)) return "";
+  return escapeHtml(value.replace(/^http:\/\//i, "https://"));
 }
 function teamLogoHtml(team) {
   const safeSrc = safeImageUrl(team.image);
@@ -3014,6 +3030,41 @@ function renderHome() {
   homeViewEl.classList.remove("hidden");
   loadActiveTab();
 }
+const WORLDS_2026_TEAM_LOGO_BASE = "https://static.lolesports.com/teams/";
+const WORLDS_2026_QUALIFIED = [
+  { code: "GEN", name: "Gen.G", file: "1773829250929_GENGLOGO_GOLD.png" },
+  { code: "T1", name: "T1", file: "1726801573959_539px-T1_2019_full_allmode.png" },
+  { code: "HLE", name: "Hanwha Life Esports", file: "1631819564399_hle-2021-worlds.png" },
+  { code: "DK", name: "Dplus KIA", file: "1673260049703_DPlusKIALOGO11.png" },
+  { code: "AL", name: "Anyone's Legend", file: "1641199582689_.png" },
+  { code: "BLG", name: "Bilibili Gaming", file: "1682322954525_Bilibili_Gaming_logo_20211.png" },
+  { code: "TES", name: "Top Esports", file: "1592592064571_TopEsportsTES-01-FullonDark.png" },
+  { code: "IG", name: "Invictus Gaming", file: "1634762917340_300px-Invictus_Gaming_logo.png" },
+  { code: "G2", name: "G2 Esports", file: "G2-FullonDark.png" },
+  { code: "KC", name: "Karmine Corp", file: "1704714951336_KC.png" },
+  { code: "MKOI", name: "Movistar KOI", file: "1734012609283_MKOI_FullColor_Blue.png" },
+  { code: "C9", name: "Cloud9", file: "1736924120254_C9Kia_IconBlue_Transparent_2000x2000.png" },
+  { code: "TLAW", name: "TL Alienware", file: "1769357207762_TLAlienware_Minimal_Bug-White.png" },
+  { code: "CFO", name: "CTBC Flying Oyster", file: "1656307849320_CFO_Logo.png" },
+  { code: "MVK", name: "MVK Esports", file: "1767089709161_White_Logo.png" },
+  { code: "TSW", name: "Team Secret Whales", file: "1774598000328_White_EyeText_600p.png" },
+];
+function isWorldsLeague(league) {
+  const n = ((league && league.name) || "").toLowerCase();
+  return n.includes("worlds") || n.includes("world championship");
+}
+function knownQualifiedTeams(league, tournament) {
+  if (!isWorldsLeague(league)) return [];
+  const start = tournament && tournament.startDate ? new Date(tournament.startDate) : null;
+  if (!start || start.getUTCFullYear() !== 2026) return [];
+  return WORLDS_2026_QUALIFIED.map((t) => ({
+    id: t.code,
+    slug: t.code.toLowerCase(),
+    code: t.code,
+    name: t.name,
+    image: WORLDS_2026_TEAM_LOGO_BASE + t.file,
+  }));
+}
 function extractTeamsFromStandings(standings, providedLookup) {
   if (!standings || !standings.stages) return [];
   const lookup = providedLookup || buildStandingsTeamLookup(standings);
@@ -3546,7 +3597,12 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
   const bracketSectionHtml = bracketByBlockHtml
     ? `<h3>Bracket</h3>${bracketByBlockHtml}`
     : `<h3>Bracket</h3>${externalBracketFallbackHtml(league)}`;
-  const teams = extractTeamsFromStandings(standings, teamLookup);
+  const standingsTeams = extractTeamsFromStandings(standings, teamLookup);
+  const fallbackTeams = standingsTeams.length ? [] : knownQualifiedTeams(league, tournament);
+  const teams = standingsTeams.length ? standingsTeams : fallbackTeams;
+  const teamsNoteHtml = fallbackTeams.length
+    ? `<p class="hint">Qualified so far, from the official Worlds team list. Remaining slots fill in as regional qualifiers finish.</p>`
+    : "";
 
   const standingsSectionHtml = isEwcLeague(league)
     ? ""
@@ -3558,6 +3614,7 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
     ${officialStreamHtml}
     ${liveGamesHtml}
     <h3>Teams</h3>
+    ${teamsNoteHtml}
     ${teamsGridHtml(teams)}
     <h3>Upcoming Games <span class="hint">(format and dates)</span></h3>
     ${upcomingGamesHtml}
@@ -3655,7 +3712,6 @@ async function renderTournamentPage(leagueId, tournamentId) {
     </div>
     ${switcherHtml}
     <div id="tournament-content-slot">${contentHtml}</div>
-    <a class="watch-link" href="${liquipediaSearchUrl}" target="_blank" rel="noopener">Full tournament page on Liquipedia ↗</a>
   `;
   wirePagination(tournamentMainEl);
 
