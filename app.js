@@ -989,7 +989,7 @@ function eventInTournamentWindow(e, range) {
   const start = startOfUtcDay(range.start);
   const end = endOfUtcDay(range.end);
   if (t >= start && t <= end) return true;
-  return bracketLane(e.blockName) === "qualifier" && t > end && t <= end + POSTSEASON_TRAILING_WINDOW_MS;
+  return !isRegularSeasonBlockName(e.blockName) && t > end && t <= end + POSTSEASON_TRAILING_WINDOW_MS;
 }
 const BRACKET_LANE_ORDER = ["playin", "upper", "main", "lower", "final", "qualifier"];
 const BRACKET_LANE_LABELS = {
