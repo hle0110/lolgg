@@ -1,6 +1,6 @@
 {
-  "name": "lol.gg",
-  "short_name": "lol.gg",
+  "name": "lolgg",
+  "short_name": "lolgg",
   "description": "Live scores, schedules, brackets, streams and stats for League of Legends esports.",
   "start_url": "./index.html",
   "scope": "./",

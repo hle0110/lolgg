@@ -3,15 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>lol.gg</title>
+<title>lolgg</title>
+<meta name="description" content="Live League of Legends esports scores, schedules, brackets, standings and streams for every major league, in your time zone." />
+<link rel="canonical" href="https://hle0110.github.io/lolgg/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="lolgg" />
+<meta property="og:title" content="lolgg: LoL esports scores, schedules and brackets" />
+<meta property="og:description" content="Live scores, schedules, brackets, standings and streams for every major League of Legends league." />
+<meta property="og:url" content="https://hle0110.github.io/lolgg/" />
+<meta property="og:image" content="https://hle0110.github.io/lolgg/icons/icon-512.png" />
+<meta name="twitter:card" content="summary" />
 <meta name="theme-color" content="#0a1428" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icons/favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
-<script>document.documentElement.setAttribute("data-theme", (function () { try { return localStorage.getItem("lolgg_theme") || "auto"; } catch (e) { return "auto"; } })());</script>
-<link rel="stylesheet" href="style.css?v=20260727z1" />
-<link rel="stylesheet" href="esports.css?v=20260905z1" />
+<script>try { document.documentElement.setAttribute("data-theme", localStorage.getItem("lolgg_theme") || "auto"); if (localStorage.getItem("lolgg_hide_scores") === "1") document.documentElement.classList.add("hide-scores"); } catch (e) { document.documentElement.setAttribute("data-theme", "auto"); }</script>
+<link rel="stylesheet" href="style.css?v=20261002z6" />
+<link rel="stylesheet" href="esports.css?v=20261002z7" />
 </head>
 <body>
   <div id="tz-picker" class="tz-picker">
@@ -24,9 +33,16 @@
       <button type="button" class="theme-btn" data-theme-choice="dark">Night</button>
       <button type="button" class="theme-btn" data-theme-choice="auto">Auto</button>
     </div>
+    <details class="settings-menu" id="settings-menu">
+      <summary class="theme-btn">Settings</summary>
+      <div class="settings-panel">
+        <button type="button" id="scores-toggle" class="theme-btn" aria-pressed="false" title="Hide series scores and winners">Hide scores</button>
+        <button type="button" id="notify-btn" class="theme-btn hidden" aria-pressed="false" title="Alerts when a favorite team goes live, while this tab is open">Notify Me</button>
+      </div>
+    </details>
   </div>
   <div id="top-clock" class="top-clock">
-    <select id="tz-select" class="tz-select"></select>
+    <select id="tz-select" class="tz-select" aria-label="Time zone"></select>
     <span id="top-clock-date" class="top-clock-date"></span>
     <span id="top-clock-time" class="top-clock-time"></span>
   </div>
@@ -36,22 +52,16 @@
   <header>
     <h1><a href="#/" class="brand-link">lolgg</a></h1>
     <p>Everything happening in LoL esports, in one place.</p>
-    <nav class="site-nav" id="tabs">
-      <div class="nav-dropdown" data-nav-group="matches">
-        <button class="nav-dropdown-btn" type="button" aria-haspopup="true" aria-expanded="false">Matches <span class="nav-caret">&#9662;</span></button>
-        <div class="nav-dropdown-menu">
-          <button class="nav-dropdown-item" data-tab="live">Ongoing</button>
-          <button class="nav-dropdown-item" data-tab="unstarted">Upcoming</button>
-          <button class="nav-dropdown-item" data-tab="completed">Completed</button>
-        </div>
+    <nav class="site-nav" id="tabs" aria-label="Browse">
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" class="seg-btn" data-view="matches" aria-pressed="true">Matches</button>
+        <button type="button" class="seg-btn" data-view="tournaments" aria-pressed="false">Tournaments</button>
       </div>
-      <div class="nav-dropdown" data-nav-group="tournaments">
-        <button class="nav-dropdown-btn" type="button" aria-haspopup="true" aria-expanded="false">Tournaments <span class="nav-caret">&#9662;</span></button>
-        <div class="nav-dropdown-menu">
-          <button class="nav-dropdown-item" data-tab="tournaments" data-status="ongoing">Ongoing</button>
-          <button class="nav-dropdown-item" data-tab="tournaments" data-status="upcoming">Upcoming</button>
-          <button class="nav-dropdown-item" data-tab="tournaments" data-status="completed">Completed</button>
-        </div>
+      <div class="seg" role="group" aria-label="Status">
+        <button type="button" class="seg-btn" data-status="live" aria-pressed="true">Live</button>
+        <button type="button" class="seg-btn" data-status="today" aria-pressed="false">Today</button>
+        <button type="button" class="seg-btn" data-status="upcoming" aria-pressed="false">Upcoming</button>
+        <button type="button" class="seg-btn" data-status="completed" aria-pressed="false">Results</button>
       </div>
     </nav>
   </header>
@@ -82,16 +92,10 @@
     <p class="footer-disclaimer">Not affiliated with or endorsed by Riot Games. League of Legends and related names are trademarks of Riot Games, Inc.</p>
   </footer>
 
-  <script src="app.js?v=20260927z1"></script>
+  <script src="app.js?v=20261002z7"></script>
   <script>
-    // Registered here (rather than inside app.js) since it needs to run even on the rare path where
-    // app.js itself fails to load/execute, and keeps the "am I in a service-worker-capable context"
-    // check right next to the registration call. No-ops silently if unsupported (e.g. older browsers,
-    // or file:// testing) rather than erroring the page.
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js").catch(() => {});
-      });
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
   </script>
 </body>
