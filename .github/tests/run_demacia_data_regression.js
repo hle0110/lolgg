@@ -63,6 +63,19 @@ window.fetch = async (url) => {
   check("An undecided team gets a plain note, never a percentage", tbd.includes("once both teams are decided") && !tbd.includes("%"));
   check("No head-to-head block against an undecided team", window.headToHeadHtml([{ code: "TBD", name: "TBD" }, navi], MATCH) === "");
 
+  check("A Worlds team from a league that is not loaded (LOS, CBLOL) still resolves to its real Riot team id", (await window.teamIdForCode("LOS")) === "109480204628225868");
+
+  const naviGames = fx.schedule["98767991302996019"].slice().sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+  const past = naviGames[4];
+  const asOf = window.recentResults("NAVI", 20, window.resultsCutoff(past.match.id));
+  check(
+    "A finished match shows form as of its own start: its result and later ones are left out",
+    asOf.length === naviGames.length - 5 && asOf.every((e) => new Date(e.startTime) < new Date(past.startTime))
+  );
+  check("An upcoming match still uses every result so far", window.recentResults("NAVI", 20, window.resultsCutoff(MATCH)).length === naviGames.length);
+
+  window.location.hash = "#/?status=upcoming";
+  await new Promise((r) => setTimeout(r, 300));
   window.location.hash = `#/match/${MATCH}`;
   await new Promise((r) => setTimeout(r, 500));
   check("The match page looks RED up by its real team id from getEventDetails", calls.includes(`getTeams:${RED_ID}`));
@@ -72,6 +85,9 @@ window.fetch = async (url) => {
   const estimate = window.document.querySelector("#prediction-slot").textContent;
   check("Cross-league match gets an estimate with both records", /RED \d+%/.test(estimate) && estimate.includes("RED 10W-10L in their last 20") && estimate.includes("NAVI"));
   check("Cross-league estimate says it is a rough guide", estimate.includes("different leagues") && estimate.includes("rough guide"));
+
+  window.document.querySelector("#match-main .back-link").dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+  check("Back to schedule returns to the tab the visitor came from, not the default one", window.location.hash === "#/?status=upcoming");
 
   await window.renderTeamPage("RED");
   const teamHtml = window.document.getElementById("team-main").textContent;

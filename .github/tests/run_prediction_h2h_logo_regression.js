@@ -92,10 +92,11 @@ function rawEvent(id, state, startTimeIso, teamA, teamB, leagueImage) {
 
   // currentEventId exclusion still works the same way for the prediction's head-to-head component as
   // it does for the H2H list itself - excluding one of T1's 3 wins over GEN leaves a 2-0 record
-  // (weaker signal, weighted less at only 2 meetings), which should pull the percentage down from 73%
-  // but still keep T1 favored.
+  // (weaker signal, weighted less at only 2 meetings). Form is also taken as of that match's start, so
+  // h2h-3 itself no longer counts for either team: T1 2W-3L (40%), GEN 3W-2L (60%), form share 40,
+  // blended with the 2-0 head-to-head at weight 0.3 gives 58. T1 stays favored.
   const pctExcludingCurrent = window.computePredictionPct([t1, gen], "h2h-3");
-  check("Excluding the current match from an otherwise-decisive head-to-head record changes the blended percentage", pctExcludingCurrent.pctA === 65 && pctExcludingCurrent.h2hGames.length === 2);
+  check("Excluding the current match from an otherwise-decisive head-to-head record changes the blended percentage", pctExcludingCurrent.pctA === 58 && pctExcludingCurrent.h2hGames.length === 2);
 
   // ============ Head-to-head rows show the tournament/league logo on the left ============
   const h2hHtml = window.headToHeadHtml([t1, gen], null);

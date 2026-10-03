@@ -66,6 +66,10 @@ window.URL.revokeObjectURL = () => {};
   scores.click();
   check("Hide scores toggles the page class and remembers it", doc.documentElement.classList.contains("hide-scores") && window.localStorage.getItem("lolgg_hide_scores") === "1" && scores.textContent === "Show scores");
   const css = fs.readFileSync("/tmp/jsdomtest/esports.css", "utf8");
+  check(
+    "With Hide scores on, the form section says why it is empty and the estimate takes no blank space",
+    /\.hide-scores \.recent-form-grid::after\s*{[^}]*content: "Hidden while Hide scores is on/.test(css) && /\.hide-scores #prediction-slot\s*{\s*display: none/.test(css)
+  );
   check("Hide scores CSS covers series scores, bracket scores, and form", /\.hide-scores \.game-wins/.test(css) && /\.hide-scores \.bracket-team-score/.test(css) && /\.hide-scores \.form-pips/.test(css));
   scores.click();
   check("Hide scores turns back off", !doc.documentElement.classList.contains("hide-scores"));

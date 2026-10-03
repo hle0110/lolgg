@@ -35,6 +35,7 @@ let selectedLeagueIds = new Set();
 let homeView = "matches";
 let homeStatus = "live";
 let scheduleCache = [];
+const loadedLeagueIds = new Set();
 
 const DATA_CUTOFF_MS = Date.parse("2023-01-01T00:00:00Z");
 function isOnOrAfterCutoff(dateStr) {
@@ -441,6 +442,7 @@ async function getSupplementalCompletedEvents(leagueIds) {
   return results.flat();
 }
 async function getSchedule(leagueIds) {
+  for (const id of leagueIds || []) loadedLeagueIds.add(id);
   const key = `schedule:${(leagueIds || []).slice().sort().join(",")}`;
 
   const [events, supplemental] = await Promise.all([
@@ -593,13 +595,13 @@ async function getTeamByQuery(value) {
 async function loadTeamHistory(teamId) {
   const team = teamId ? await getTeamByQuery(teamId) : null;
   const leagueId = findLeagueIdByName(team && team.homeLeague ? team.homeLeague.name : null);
-  if (leagueId) await getSchedule([leagueId]).catch(() => []);
+  if (leagueId && !loadedLeagueIds.has(leagueId)) await getSchedule([leagueId]).catch(() => []);
   return team;
 }
 async function teamIdForCode(code) {
   const seen = scheduleCache.find((e) => e.teams.some((t) => t.code === code));
   const detail = seen ? await getEventDetails(seen.id).catch(() => null) : null;
-  const team = detail ? detail.teams.find((t) => t.code === code) : null;
+  const team = (detail ? detail.teams.find((t) => t.code === code) : null) || WORLDS_2026_QUALIFIED.find((t) => t.code === code);
   return team ? team.id : null;
 }
 async function resolveMissingTeamRef(t) {
@@ -1676,6 +1678,12 @@ function goHome() {
   if (current === q) loadActiveTab();
   else window.location.hash = q ? `#/?${q}` : "#/";
 }
+document.addEventListener("click", (ev) => {
+  const back = ev.target && ev.target.closest ? ev.target.closest(".back-link") : null;
+  if (!back || ev.metaKey || ev.ctrlKey) return;
+  ev.preventDefault();
+  goHome();
+});
 function syncNav() {
   if (!tabsEl) return;
   tabsEl.dataset.activeView = homeView;
@@ -2174,24 +2182,28 @@ async function loadCostreamStatuses(container, force, teams) {
     if (!matchPageCostreamKey) slot.innerHTML = `<p class="idle">Couldn't check co-stream status right now.</p>`;
   }
 }
-function recentResults(teamCode, n = 20) {
+function resultsCutoff(eventId) {
+  const e = eventId ? scheduleCache.find((x) => x.id === eventId) : null;
+  return e && e.startTime ? new Date(e.startTime).getTime() : Infinity;
+}
+function recentResults(teamCode, n = 20, before = Infinity) {
   if (!teamCode) return [];
   return scheduleCache
-    .filter((e) => e.state === "completed" && e.teams.some((t) => t.code === teamCode))
+    .filter((e) => e.state === "completed" && new Date(e.startTime).getTime() < before && e.teams.some((t) => t.code === teamCode))
     .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
     .slice(0, n);
 }
 function outcomeFor(e, teamCode) {
   return e.teams.find((t) => t.code === teamCode).outcome;
 }
-function recentFormHtml(teamCode, n = 20) {
+function recentFormHtml(teamCode, n = 20, before = Infinity) {
   if (!teamCode) return "";
-  const results = recentResults(teamCode, n).map((e) => outcomeFor(e, teamCode));
+  const results = recentResults(teamCode, n, before).map((e) => outcomeFor(e, teamCode));
   if (!results.length) return `<span class="form-empty">No recent results loaded</span>`;
   return results.map((r) => `<span class="form-pip ${r}">${r === "win" ? "W" : "L"}</span>`).join("");
 }
-function recentWinRate(teamCode, n = 20) {
-  const games = recentResults(teamCode, n);
+function recentWinRate(teamCode, n = 20, before = Infinity) {
+  const games = recentResults(teamCode, n, before);
   if (!games.length) return null;
   const wins = games.filter((e) => outcomeFor(e, teamCode) === "win").length;
   return { games: games.length, wins, winRatePct: Math.round((wins / games.length) * 100), leagueId: mainLeagueId(games) };
@@ -2212,6 +2224,7 @@ function headToHeadGames(codeA, codeB, currentEventId, n = 10) {
       (e) =>
         e.state === "completed" &&
         e.id !== currentEventId &&
+        new Date(e.startTime).getTime() < resultsCutoff(currentEventId) &&
         e.teams.some((t) => t.code === codeA) &&
         e.teams.some((t) => t.code === codeB)
     )
@@ -2222,8 +2235,9 @@ function headToHeadGames(codeA, codeB, currentEventId, n = 10) {
 function computePredictionPct(teams, currentEventId) {
   if (!teams || teams.length !== 2 || teams.some(isTbdPlaceholderTeam)) return null;
   const [a, b] = teams;
-  const formA = recentWinRate(a.code, 20);
-  const formB = recentWinRate(b.code, 20);
+  const before = resultsCutoff(currentEventId);
+  const formA = recentWinRate(a.code, 20, before);
+  const formB = recentWinRate(b.code, 20, before);
   const h2hGames = a.code && b.code ? headToHeadGames(a.code, b.code, currentEventId, 20) : [];
   const h2hAWins = h2hGames.filter((e) => e.teams.find((t) => t.code === a.code)?.outcome === "win").length;
   const h2hBWins = h2hGames.length - h2hAWins;
@@ -2773,13 +2787,14 @@ async function refreshMatchPage(eventId, event) {
   paintFormSlots(teams, eventId);
   if (newState === "inProgress") loadCostreamStatuses(matchMainEl, false, teams);
 }
-function recentFormRowsHtml(teams) {
+function recentFormRowsHtml(teams, eventId) {
+  const before = resultsCutoff(eventId);
   return teams
-    .map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${isTbdPlaceholderTeam(t) ? `<span class="form-empty">Not decided yet</span>` : recentFormHtml(t.code)}</span></div>`)
+    .map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${isTbdPlaceholderTeam(t) ? `<span class="form-empty">Not decided yet</span>` : recentFormHtml(t.code, 20, before)}</span></div>`)
     .join("");
 }
 function paintFormSlots(teams, eventId) {
-  const slots = { "#recent-form-slot": recentFormRowsHtml(teams), "#prediction-slot": predictionHtml(teams, eventId), "#h2h-slot": headToHeadHtml(teams, eventId) };
+  const slots = { "#recent-form-slot": recentFormRowsHtml(teams, eventId), "#prediction-slot": predictionHtml(teams, eventId), "#h2h-slot": headToHeadHtml(teams, eventId) };
   for (const [selector, html] of Object.entries(slots)) {
     const el = matchMainEl.querySelector(selector);
     if (el) el.innerHTML = html;
@@ -2787,7 +2802,7 @@ function paintFormSlots(teams, eventId) {
 }
 async function loadMatchTeamHistory(eventId, teams) {
   const detail = await getEventDetails(eventId).catch(() => null);
-  const missing = ((detail && detail.teams) || []).filter((t) => t.id && !isTbdPlaceholderTeam(t) && recentResults(t.code).length < 20);
+  const missing = ((detail && detail.teams) || []).filter((t) => t.id && !isTbdPlaceholderTeam(t) && recentResults(t.code, 20, resultsCutoff(eventId)).length < 20);
   if (!missing.length) return;
   await Promise.all(missing.map((t) => loadTeamHistory(t.id)));
   const r = getRoute();
@@ -2909,8 +2924,8 @@ async function paintMatchPage(eventId, event) {
         ? `<h3>Live In-Game Stats</h3><div id="live-stats-slot"><p class="loading">Loading live stats…</p></div>`
         : ""
     }
-    <h3>Recent Form <span class="hint">(last 20 results)</span></h3>
-    <div id="recent-form-slot" class="recent-form-grid">${recentFormRowsHtml(teams)}</div>
+    <h3>Recent Form <span class="hint">(last 20 results${state === "unstarted" ? "" : " before this match"})</span></h3>
+    <div id="recent-form-slot" class="recent-form-grid">${recentFormRowsHtml(teams, eventId)}</div>
     <div id="prediction-slot">${predictionHtml(teams, eventId)}</div>
     <div id="h2h-slot">${headToHeadHtml(teams, eventId)}</div>
     ${bracketLinkHtml}
@@ -2998,24 +3013,24 @@ function renderHome() {
 }
 const WORLDS_2026_TEAM_LOGO_BASE = "https://static.lolesports.com/teams/";
 const WORLDS_2026_QUALIFIED = [
-  { code: "GEN", name: "Gen.G Esports", file: "1773829250929_GENGLOGO_GOLD.png" },
-  { code: "T1", name: "T1", file: "1726801573959_539px-T1_2019_full_allmode.png" },
-  { code: "HLE", name: "Hanwha Life Esports", file: "1631819564399_hle-2021-worlds.png" },
-  { code: "DK", name: "Dplus KIA", file: "1673260049703_DPlusKIALOGO11.png" },
-  { code: "AL", name: "Anyone's Legend", file: "1641199582689_.png" },
-  { code: "BLG", name: "BILIBILI GAMING", file: "1682322954525_Bilibili_Gaming_logo_20211.png" },
-  { code: "TES", name: "TOP ESPORTS", file: "1592592064571_TopEsportsTES-01-FullonDark.png" },
-  { code: "IG", name: "Invictus Gaming", file: "1634762917340_300px-Invictus_Gaming_logo.png" },
-  { code: "G2", name: "G2 Esports", file: "G2-FullonDark.png" },
-  { code: "KC", name: "Karmine Corp", file: "1704714951336_KC.png" },
-  { code: "MKOI", name: "Movistar KOI", file: "1734012609283_MKOI_FullColor_Blue.png" },
-  { code: "C9", name: "Cloud9 Kia", file: "1736924120254_C9Kia_IconBlue_Transparent_2000x2000.png" },
-  { code: "TLAW", name: "Team Liquid Alienware", file: "1769357207762_TLAlienware_Minimal_Bug-White.png" },
-  { code: "LYON", name: "LYON", file: "1743717443673_isotypelyon-03.png" },
-  { code: "CFO", name: "CTBC Flying Oyster", file: "1656307849320_CFO_Logo.png" },
-  { code: "MVK", name: "MVK Esports", file: "1767089709161_White_Logo.png" },
-  { code: "TSW", name: "Team Secret Whales", file: "1774598000328_White_EyeText_600p.png" },
-  { code: "LOS", name: "LOS", file: "1784013312149_LOS-OLaranja.png" },
+  { id: "100205573495116443", code: "GEN", name: "Gen.G Esports", file: "1773829250929_GENGLOGO_GOLD.png" },
+  { id: "98767991853197861", code: "T1", name: "T1", file: "1726801573959_539px-T1_2019_full_allmode.png" },
+  { id: "100205573496804586", code: "HLE", name: "Hanwha Life Esports", file: "1631819564399_hle-2021-worlds.png" },
+  { id: "100725845018863243", code: "DK", name: "Dplus KIA", file: "1673260049703_DPlusKIALOGO11.png" },
+  { id: "99566404856367466", code: "AL", name: "Anyone's Legend", file: "1641199582689_.png" },
+  { id: "99566404853854212", code: "BLG", name: "BILIBILI GAMING", file: "1682322954525_Bilibili_Gaming_logo_20211.png" },
+  { id: "99566404854685458", code: "TES", name: "TOP ESPORTS", file: "1592592064571_TopEsportsTES-01-FullonDark.png" },
+  { id: "99566404848691211", code: "IG", name: "Invictus Gaming", file: "1634762917340_300px-Invictus_Gaming_logo.png" },
+  { id: "98767991926151025", code: "G2", name: "G2 Esports", file: "G2-FullonDark.png" },
+  { id: "111692118851466302", code: "KC", name: "Karmine Corp", file: "1704714951336_KC.png" },
+  { id: "103461966965149786", code: "MKOI", name: "Movistar KOI", file: "1734012609283_MKOI_FullColor_Blue.png" },
+  { id: "98767991877340524", code: "C9", name: "Cloud9 Kia", file: "1736924120254_C9Kia_IconBlue_Transparent_2000x2000.png" },
+  { id: "98926509885559666", code: "TLAW", name: "Team Liquid Alienware", file: "1769357207762_TLAlienware_Minimal_Bug-White.png" },
+  { id: "99566405941863385", code: "LYON", name: "LYON", file: "1743717443673_isotypelyon-03.png" },
+  { id: "107700199633958891", code: "CFO", name: "CTBC Flying Oyster", file: "1656307849320_CFO_Logo.png" },
+  { id: "107251245690956393", code: "MVK", name: "MVK Esports", file: "1767089709161_White_Logo.png" },
+  { id: "113661839307879869", code: "TSW", name: "Team Secret Whales", file: "1774598000328_White_EyeText_600p.png" },
+  { id: "109480204628225868", code: "LOS", name: "LOS", file: "1784013312149_LOS-OLaranja.png" },
 ];
 function isWorldsLeague(league) {
   const n = ((league && league.name) || "").toLowerCase();
