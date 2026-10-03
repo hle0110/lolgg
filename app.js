@@ -105,6 +105,10 @@ const LEAGUE_OFFICIAL_STREAMS = [
     { url: "https://www.youtube.com/@LPL_English", label: "YouTube" },
     { url: "https://www.huya.com/lpl", label: "Huya" },
   ] },
+  { match: "demacia_cup", links: [
+    { url: "https://www.twitch.tv/lplenglish", label: "Twitch" },
+    { url: "https://www.huya.com/660000", label: "Huya" },
+  ] },
   { match: "lcs", links: [
     { url: "https://www.twitch.tv/lcs", label: "Twitch" },
     { url: "https://www.youtube.com/@LCS", label: "YouTube" },
@@ -139,6 +143,10 @@ function officialLeagueStreamEntry(league) {
 }
 function twitchLoginFromUrl(url) {
   const m = /twitch\.tv\/([a-zA-Z0-9_]+)/.exec(url || "");
+  return m ? m[1] : null;
+}
+function huyaRoomFromUrl(url) {
+  const m = /huya\.com\/(\d+)/.exec(url || "");
   return m ? m[1] : null;
 }
 
@@ -506,7 +514,8 @@ async function getEventDetails(id) {
 
     const bestOf = event.match && event.match.strategy ? event.match.strategy.count : null;
     const teams = event.match && event.match.teams ? deriveMissingOutcomes(event.match.teams.map(normalizeTeam), bestOf) : [];
-    const state = computeEffectiveState(event.state, teams, event.startTime);
+    const gameLive = games.some((g) => g.state === "inProgress");
+    const state = computeEffectiveState(event.state, teams, event.startTime) || (gameLive ? "inProgress" : undefined);
     return { id: event.id, state, streams, games, teams, bestOf, startTime: event.startTime || null };
   });
 }
@@ -918,14 +927,13 @@ function standingsHtml(standings, providedLookup) {
   return stagesHtml || `<p class="idle">Standings aren't available for this tournament yet. Group stage hasn't started, or it's straight into bracket play.</p>`;
 }
 
-let liveStatsDelaySeconds = 0;
+const LIVE_STATS_DELAY_SECONDS = 90;
+let liveStatsDelaySeconds = LIVE_STATS_DELAY_SECONDS;
 let liveStatsDelayGameId = null;
-let liveStatsCleanFetchStreak = 0;
 function ensureLiveStatsDelayForGame(gameId) {
   if (gameId !== liveStatsDelayGameId) {
     liveStatsDelayGameId = gameId;
-    liveStatsDelaySeconds = 0;
-    liveStatsCleanFetchStreak = 0;
+    liveStatsDelaySeconds = LIVE_STATS_DELAY_SECONDS;
   }
 }
 function isoTimeWithDelay(delaySeconds) {
@@ -937,15 +945,7 @@ function isoTimeWithDelay(delaySeconds) {
   return date.toISOString();
 }
 function bumpLiveStatsDelay() {
-  liveStatsDelaySeconds = Math.min(liveStatsDelaySeconds + 10, 60);
-  liveStatsCleanFetchStreak = 0;
-}
-function relaxLiveStatsDelay() {
-  liveStatsCleanFetchStreak += 1;
-  if (liveStatsCleanFetchStreak >= 2 && liveStatsDelaySeconds > 0) {
-    liveStatsDelaySeconds = Math.max(0, liveStatsDelaySeconds - 10);
-    liveStatsCleanFetchStreak = 0;
-  }
+  liveStatsDelaySeconds = Math.min(liveStatsDelaySeconds + 10, 180);
 }
 async function getGameWindow(gameId) {
   ensureLiveStatsDelayForGame(gameId);
@@ -965,9 +965,7 @@ async function getGameWindow(gameId) {
         }
         return null;
       }
-      const json = await res.json();
-      if (json && json.frames && json.frames.length) relaxLiveStatsDelay();
-      return json;
+      return await res.json();
     } catch {
       return null;
     }
@@ -1760,10 +1758,11 @@ async function loadTournamentsTab(silent = false) {
 async function eventIsGenuinelyLive(event) {
   try {
     const detail = await getEventDetails(event.id);
-    if (detail.state === "inProgress") return true;
+    const state = detail.state || event.state;
+    if (state === "inProgress") return true;
     const knownStart = detail.startTime || (event && event.startTime) || null;
     if (!knownStart) return false;
-    return computeEffectiveState(detail.state, detail.teams, knownStart) === "inProgress";
+    return computeEffectiveState(state, detail.teams, knownStart) === "inProgress";
   } catch {
     return false;
   }
@@ -1935,6 +1934,7 @@ function embedUrlForStream(stream) {
   if (provider === "youtube") {
     return `https://www.youtube.com/embed/${encodeURIComponent(extractYoutubeId(stream.parameter))}?autoplay=1&mute=1`;
   }
+  if (provider === "huya") return `https://liveshare.huya.com/iframe/${encodeURIComponent(stream.parameter)}`;
   return null;
 }
 function watchUrlFor(item, kind) {
@@ -1945,6 +1945,7 @@ function watchUrlFor(item, kind) {
     return `https://twitch.tv/${item.parameter}`;
   }
   if (provider === "youtube") return `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
+  if (provider === "huya") return `https://www.huya.com/${encodeURIComponent(item.parameter)}`;
   return null;
 }
 function embedUrlForVod(vod) {
@@ -1969,6 +1970,7 @@ function isPlayableStream(s) {
   const provider = providerName(s.provider);
   if (provider === "twitch") return !!(s.parameter && String(s.parameter).trim());
   if (provider === "youtube") return /^[a-zA-Z0-9_-]{11}$/.test(extractYoutubeId(s.parameter) || "");
+  if (provider === "huya") return /^\d+$/.test(String(s.parameter || ""));
   return false;
 }
 
@@ -2849,7 +2851,9 @@ async function paintMatchPage(eventId, event) {
       ? twitchLoginFromUrl((knownLeagueTwitch.links.find((l) => l.label === "Twitch") || {}).url)
       : null;
     if (officialTwitchLogin) {
-      liveStreamItems = [{ provider: "twitch", parameter: officialTwitchLogin, locale: `${league.name} Official` }];
+      const huyaRoom = huyaRoomFromUrl((knownLeagueTwitch.links.find((l) => l.label === "Huya") || {}).url);
+      liveStreamItems = [{ provider: "twitch", parameter: officialTwitchLogin, locale: "English" }];
+      if (huyaRoom) liveStreamItems.push({ provider: "huya", parameter: huyaRoom, locale: "Chinese" });
       streamFallbackHint = `<p class="hint">No per-match stream link yet. Showing the official ${escapeHtml(league.name)} Twitch channel.</p>`;
     }
   }
