@@ -35,12 +35,16 @@ const T2025 = { id: "old", slug: "worlds_2025", startDate: "2025-10-14", endDate
   );
 
   const q = w.knownQualifiedTeams(WORLDS, T2026);
-  check("All 16 currently qualified Worlds teams are available as a fallback", q.length === 16);
+  check("All 18 currently qualified Worlds teams are available as a fallback", q.length === 18);
   check(
     "The list matches Riot's published qualifiers",
-    ["GEN", "T1", "HLE", "DK", "AL", "BLG", "TES", "IG", "G2", "KC", "MKOI", "C9", "TLAW", "CFO", "MVK", "TSW"].every((c) =>
+    ["GEN", "T1", "HLE", "DK", "AL", "BLG", "TES", "IG", "G2", "KC", "MKOI", "C9", "TLAW", "LYON", "CFO", "MVK", "TSW", "LOS"].every((c) =>
       q.some((t) => t.code === c)
     )
+  );
+  check(
+    "Fallback names are Riot's own team names",
+    ["Gen.G Esports", "Cloud9 Kia", "Team Liquid Alienware", "LYON", "LOS"].every((n) => q.some((t) => t.name === n))
   );
   check("No TBD placeholder is invented in the fallback list", q.every((t) => t.code !== "TBD"));
   check("Fallback teams do NOT leak onto a previous Worlds tournament", w.knownQualifiedTeams(WORLDS, T2025).length === 0);
@@ -48,7 +52,7 @@ const T2025 = { id: "old", slug: "worlds_2025", startDate: "2025-10-14", endDate
   check("Fallback teams do not apply when the tournament has no start date", w.knownQualifiedTeams(WORLDS, {}).length === 0);
 
   const grid = w.teamsGridHtml(q);
-  check("The fallback teams render as clickable team cards", (grid.match(/class="team-card/g) || []).length === 16);
+  check("The fallback teams render as clickable team cards", (grid.match(/class="team-card/g) || []).length === 18);
   check("Team logos are served over https, never mixed-content http", !/src="http:\/\//.test(grid) && /src="https:\/\/static\.lolesports\.com/.test(grid));
   check("safeImageUrl upgrades a plain http image URL to https", w.safeImageUrl("http://static.lolesports.com/x.png") === "https://static.lolesports.com/x.png");
   check("safeImageUrl still rejects a javascript: URL", w.safeImageUrl("javascript:alert(1)") === "");

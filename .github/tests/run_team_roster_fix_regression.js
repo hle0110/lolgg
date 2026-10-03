@@ -46,10 +46,10 @@ function makeDom() {
                     id: "ev-1",
                     strategy: { count: 1 },
                     teams: [
-                      // The real numeric Riot team id (1001) lives right here on the match's team object,
-                      // separate from the short display code (T1) the team page is routed by.
-                      { id: "1001", name: "T1", code: "T1", result: { gameWins: 1, outcome: "win" } },
-                      { id: "1002", name: "Gen.G", code: "GEN", result: { gameWins: 0, outcome: "loss" } },
+                      // Riot's schedule carries no team id at all, only name and code (checked against the
+                      // live API on 2026-10-02). The real numeric id (1001) only comes from getEventDetails.
+                      { name: "T1", code: "T1", result: { gameWins: 1, outcome: "win" } },
+                      { name: "Gen.G", code: "GEN", result: { gameWins: 0, outcome: "loss" } },
                     ],
                   },
                 },
@@ -61,6 +61,21 @@ function makeDom() {
       };
     }
     if (u.includes("/getTournamentsForLeague")) return { ok: true, json: async () => ({ data: { leagues: [{ tournaments: [] }] } }) };
+    if (u.includes("/getEventDetails")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            event: {
+              id: "ev-1",
+              state: "completed",
+              streams: [],
+              match: { strategy: { count: 1 }, games: [], teams: [{ id: "1001", name: "T1", code: "T1" }, { id: "1002", name: "Gen.G", code: "GEN" }] },
+            },
+          },
+        }),
+      };
+    }
     if (u.includes("/getTeams")) {
       const idParam = new URL(u).searchParams.get("id");
       getTeamsCalls.push(idParam);
@@ -102,7 +117,7 @@ function makeDom() {
   const teamMainEl = window.document.getElementById("team-main");
 
   check(
-    "/getTeams is looked up with the real numeric team id (1001), not the short display code (T1) the page is routed by",
+    "/getTeams is looked up with the real numeric team id (1001) taken from getEventDetails, not the short display code (T1) the page is routed by",
     getTeamsCalls.includes("1001")
   );
   check(

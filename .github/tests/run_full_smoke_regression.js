@@ -29,8 +29,8 @@ function matchEvent(id, isoDate, state, teamA, teamB) {
       id,
       strategy: { count: 3 },
       teams: [
-        { id: "1001", name: teamA, code: teamA, result: state === "completed" ? { gameWins: 2, outcome: "win" } : { gameWins: 0, outcome: null } },
-        { id: "1002", name: teamB, code: teamB, result: state === "completed" ? { gameWins: 1, outcome: "loss" } : { gameWins: 0, outcome: null } },
+        { name: teamA, code: teamA, result: state === "completed" ? { gameWins: 2, outcome: "win" } : { gameWins: 0, outcome: null } },
+        { name: teamB, code: teamB, result: state === "completed" ? { gameWins: 1, outcome: "loss" } : { gameWins: 0, outcome: null } },
       ],
     },
   };
@@ -99,7 +99,7 @@ function matchEvent(id, isoDate, state, teamA, teamB) {
               state: isCompleted ? "completed" : "unstarted",
               startTime: isCompleted ? pastStart : futureStart,
               streams: [],
-              match: { strategy: { count: 3 }, teams: [], games: [] },
+              match: { strategy: { count: 3 }, teams: [{ id: "1001", name: "T1", code: "T1" }, { id: "1002", name: isCompleted ? "DK" : "GEN", code: isCompleted ? "DK" : "GEN" }], games: [] },
             },
           },
         }),

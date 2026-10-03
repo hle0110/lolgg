@@ -45,9 +45,11 @@ window.Notification = undefined;
   check("Prediction escapes team codes", !pred.includes("<s>"));
 
   check("Same-league teams still get a percentage", window.computePredictionPct([{ code: "GEN" }, { code: "T1" }], null) !== null);
-  check("Cross-league teams with no head-to-head get no made-up percentage", window.computePredictionPct([{ code: "C9" }, { code: "GEN" }], null) === null);
+  check("Cross-league teams still get an estimate from their records (international events are all cross-league)", window.computePredictionPct([{ code: "C9" }, { code: "GEN" }], null) !== null);
   const cross = window.predictionHtml([{ code: "C9" }, { code: "GEN" }], null);
-  check("Cross-league teams get an honest explanation with both records", cross.includes("different leagues") && cross.includes("C9 2W 0L") && cross.includes("GEN 1W 1L"));
+  check("Cross-league estimate shows both records and says it is a rough guide", cross.includes("different leagues") && cross.includes("rough guide") && cross.includes("C9 2W-0L") && cross.includes("GEN 1W-1L"));
+  check("Same-league estimate carries no cross-league note", !window.predictionHtml([{ code: "GEN" }, { code: "T1" }], null).includes("different leagues"));
+  check("No history for either team still gives no made-up percentage", window.computePredictionPct([{ code: "AAA" }, { code: "BBB" }], null) === null);
   check("Prediction is no longer labelled AI", !/AI Prediction/.test(fs.readFileSync("/tmp/jsdomtest/app.js", "utf8")) && pred.includes("Form estimate"));
 
   const app = fs.readFileSync("/tmp/jsdomtest/app.js", "utf8");

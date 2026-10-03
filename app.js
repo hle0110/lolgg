@@ -102,7 +102,6 @@ const LEAGUE_OFFICIAL_STREAMS = [
   { match: "lpl", links: [
     { url: "https://www.twitch.tv/lplenglish", label: "Twitch" },
     { url: "https://www.youtube.com/@LPL_English", label: "YouTube" },
-
     { url: "https://www.huya.com/lpl", label: "Huya" },
   ] },
   { match: "lcs", links: [
@@ -174,7 +173,6 @@ async function resolveKnownLeagueStreamPriority(known, startTime) {
 
 async function officialStreamLinksHtml(league, startTime) {
   if (isEwcLeague(league)) {
-
     const links = EWC_ARENA_STREAMS.map(
       (s) => `<a class="watch-link" href="https://twitch.tv/${encodeURIComponent(s.twitch)}" target="_blank" rel="noopener">${s.name} (Twitch) ↗</a>`
     );
@@ -465,13 +463,11 @@ function hasTeamData(e) {
   return !!(e && e.teams && e.teams.length);
 }
 function mergeLiveEvent(scheduleCacheVersion, liveEndpointVersion) {
-
   if (liveEndpointVersion && hasTeamData(liveEndpointVersion)) return liveEndpointVersion;
   if (scheduleCacheVersion && hasTeamData(scheduleCacheVersion)) return scheduleCacheVersion;
   return liveEndpointVersion || scheduleCacheVersion;
 }
 async function getLive(leagueIds) {
-
   const [fromLiveEndpoint, scheduleEvents] = await Promise.all([
     cached("live", 15 * 1000, async () => {
       const data = await esportsFetch("/getLive");
@@ -594,6 +590,18 @@ async function getTeamByQuery(value) {
     }
   });
 }
+async function loadTeamHistory(teamId) {
+  const team = teamId ? await getTeamByQuery(teamId) : null;
+  const leagueId = findLeagueIdByName(team && team.homeLeague ? team.homeLeague.name : null);
+  if (leagueId) await getSchedule([leagueId]).catch(() => []);
+  return team;
+}
+async function teamIdForCode(code) {
+  const seen = scheduleCache.find((e) => e.teams.some((t) => t.code === code));
+  const detail = seen ? await getEventDetails(seen.id).catch(() => null) : null;
+  const team = detail ? detail.teams.find((t) => t.code === code) : null;
+  return team ? team.id : null;
+}
 async function resolveMissingTeamRef(t) {
   if (t.id) {
     const byId = await getTeamByQuery(t.id).catch(() => null);
@@ -625,14 +633,22 @@ function findActiveTournament(tournaments) {
     }) || null
   );
 }
-function tournamentDateRangeLabel(t) {
+const TOURNAMENT_DATE_SLACK_MS = 3 * 86400000;
+function tournamentDateRangeLabel(t, leagueId) {
   if (!t || !t.startDate) return "";
-  const fmtFull = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  const fmtShort = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-  if (!t.endDate) return fmtFull(t.startDate);
-  const startYear = new Date(t.startDate).getUTCFullYear();
-  const endYear = new Date(t.endDate).getUTCFullYear();
-  return startYear === endYear ? `${fmtShort(t.startDate)} - ${fmtFull(t.endDate)}` : `${fmtFull(t.startDate)} - ${fmtFull(t.endDate)}`;
+  const times = scheduleCache.filter((e) => leagueId && e.league && e.league.id === leagueId && e.startTime).map((e) => Date.parse(e.startTime));
+  const matchDay = (from, to, pick) => {
+    const ms = pick(...times.filter((x) => x >= from && x <= to));
+    return Number.isFinite(ms) ? { ms, timeZone: getActiveTimeZone() || undefined } : null;
+  };
+  const start = matchDay(startOfUtcDay(t.startDate), startOfUtcDay(t.startDate) + TOURNAMENT_DATE_SLACK_MS, Math.min) || { ms: Date.parse(t.startDate), timeZone: "UTC" };
+  const end = !t.endDate
+    ? null
+    : matchDay(endOfUtcDay(t.endDate) - TOURNAMENT_DATE_SLACK_MS, endOfUtcDay(t.endDate), Math.max) || { ms: Date.parse(t.endDate), timeZone: "UTC" };
+  const fmt = (d, year) => new Date(d.ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: year ? "numeric" : undefined, timeZone: d.timeZone });
+  if (!end) return fmt(start, true);
+  const sameYear = new Date(start.ms).getUTCFullYear() === new Date(end.ms).getUTCFullYear();
+  return `${fmt(start, !sameYear)} - ${fmt(end, true)}`;
 }
 function pickDisplayTournament(tournaments) {
   if (!tournaments || !tournaments.length) return null;
@@ -1722,7 +1738,7 @@ async function loadTournamentsTab(silent = false) {
             <a class="tournament-card" href="#/tournament/${encodeURIComponent(league.id)}/${encodeURIComponent(tournament.id)}">
               ${leagueLogoHtml(league, "tournament-card-logo")}
               <div class="tournament-card-name">${escapeHtml(league.name)}</div>
-              <div class="tournament-card-dates hint">${tournamentDateRangeLabel(tournament)}</div>
+              <div class="tournament-card-dates hint">${tournamentDateRangeLabel(tournament, league.id)}</div>
             </a>`
             )
             .join("")}</div>`
@@ -2178,7 +2194,12 @@ function recentWinRate(teamCode, n = 20) {
   const games = recentResults(teamCode, n);
   if (!games.length) return null;
   const wins = games.filter((e) => outcomeFor(e, teamCode) === "win").length;
-  return { games: games.length, wins, winRatePct: Math.round((wins / games.length) * 100), leagueId: games[0].league ? games[0].league.id : null };
+  return { games: games.length, wins, winRatePct: Math.round((wins / games.length) * 100), leagueId: mainLeagueId(games) };
+}
+function mainLeagueId(games) {
+  const counts = new Map();
+  for (const e of games) if (e.league) counts.set(e.league.id, (counts.get(e.league.id) || 0) + 1);
+  return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a))[0] || null;
 }
 function formComparable(formA, formB) {
   return !formA || !formB || formA.leagueId === formB.leagueId;
@@ -2199,7 +2220,7 @@ function headToHeadGames(codeA, codeB, currentEventId, n = 10) {
 }
 
 function computePredictionPct(teams, currentEventId) {
-  if (!teams || teams.length !== 2) return null;
+  if (!teams || teams.length !== 2 || teams.some(isTbdPlaceholderTeam)) return null;
   const [a, b] = teams;
   const formA = recentWinRate(a.code, 20);
   const formB = recentWinRate(b.code, 20);
@@ -2207,12 +2228,10 @@ function computePredictionPct(teams, currentEventId) {
   const h2hAWins = h2hGames.filter((e) => e.teams.find((t) => t.code === a.code)?.outcome === "win").length;
   const h2hBWins = h2hGames.length - h2hAWins;
 
-  const rateA = formA ? formA.winRatePct : formB ? 100 - formB.winRatePct : null;
-  const rateB = formB ? formB.winRatePct : formA ? 100 - formA.winRatePct : null;
   let formShareA = null;
-  if (formComparable(formA, formB) && rateA !== null && rateB !== null) {
-    const sum = rateA + rateB;
-    formShareA = sum > 0 ? (rateA / sum) * 100 : 50;
+  if (formA && formB) {
+    const sum = formA.winRatePct + formB.winRatePct;
+    formShareA = sum > 0 ? (formA.winRatePct / sum) * 100 : 50;
   }
 
   const h2hShareA = h2hGames.length ? (h2hAWins / h2hGames.length) * 100 : null;
@@ -2239,11 +2258,11 @@ function predictionHtml(teams, currentEventId) {
   const nameB = escapeHtml(b.code || b.name || "Team B");
   const result = computePredictionPct(teams, currentEventId);
   if (!result) {
-    const formA = recentWinRate(a.code);
-    const formB = recentWinRate(b.code);
-    return formComparable(formA, formB)
-      ? `<h3>Form estimate</h3><p class="hint prediction-basis">No completed match history loaded yet for either team, so there's nothing to base a prediction on.</p>`
-      : `<h3>Form estimate</h3><p class="hint prediction-basis">These teams play in different leagues, so their recent records aren't comparable. ${nameA} ${formA.wins}W ${formA.games - formA.wins}L, ${nameB} ${formB.wins}W ${formB.games - formB.wins}L in their last games.</p>`;
+    return `<h3>Form estimate</h3><p class="hint prediction-basis">${
+      teams.some(isTbdPlaceholderTeam)
+        ? "The estimate appears once both teams are decided."
+        : "No completed match history loaded yet for both teams, so there's nothing to base a prediction on."
+    }</p>`;
   }
   const { pctA, pctB, formA, formB, h2hGames, h2hAWins, h2hBWins } = result;
   const basisParts = [];
@@ -2253,6 +2272,7 @@ function predictionHtml(teams, currentEventId) {
   const h2hBasis = h2hGames.length
     ? ` Head-to-head: ${nameA} ${h2hAWins}-${h2hBWins} ${nameB} over their last ${h2hGames.length} meeting${h2hGames.length === 1 ? "" : "s"}.`
     : "";
+  const leagueNote = formComparable(formA, formB) ? "" : " These teams play in different leagues, so treat this as a rough guide.";
   const favored = pctA === pctB ? "" : pctA > pctB ? nameA : nameB;
   return `
     <h3>Form estimate</h3>
@@ -2260,12 +2280,12 @@ function predictionHtml(teams, currentEventId) {
       <div class="prediction-bar-fill prediction-bar-a" style="width:${pctA}%">${pctA >= 20 ? `${nameA} ${pctA}%` : ""}</div>
       <div class="prediction-bar-fill prediction-bar-b" style="width:${pctB}%">${pctB >= 20 ? `${nameB} ${pctB}%` : ""}</div>
     </div>
-    <p class="prediction-basis">${favored ? `${favored} favored ${Math.max(pctA, pctB)}% to win. ` : ""}${formBasis}${h2hBasis}</p>`;
+    <p class="prediction-basis">${favored ? `${favored} favored ${Math.max(pctA, pctB)}% to win. ` : ""}${formBasis}${h2hBasis}${leagueNote}</p>`;
 }
 function headToHeadHtml(teams, currentEventId) {
   if (!teams || teams.length !== 2) return "";
   const [a, b] = teams;
-  if (!a.code || !b.code) return "";
+  if (!a.code || !b.code || teams.some(isTbdPlaceholderTeam)) return "";
   const games = headToHeadGames(a.code, b.code, currentEventId, 10);
   if (!games.length) {
     return `<h3>Head-to-Head</h3><p class="hint prediction-basis">No previous meetings between these two teams loaded yet.</p>`;
@@ -2711,6 +2731,7 @@ async function renderMatchPage(eventId) {
     }
   }
   await paintMatchPage(eventId, event);
+  loadMatchTeamHistory(eventId, event ? event.teams : []).catch(() => {});
   matchPagePollTimer = setInterval(() => {
     const r = getRoute();
     if (r.view === "match" && r.id === eventId) {
@@ -2733,11 +2754,9 @@ async function refreshMatchPage(eventId, event) {
     return;
   }
   if (newState === "inProgress") {
-
     const liveGame = pickCurrentLiveGame(detail.games);
     const slot = matchMainEl.querySelector("#live-stats-slot");
     if (slot) {
-
       if (liveGame && liveGame.state !== "completed") {
         if (liveGame.id !== currentLiveStatsGameId) {
           const stats = await getLiveStats(liveGame.id);
@@ -2751,17 +2770,28 @@ async function refreshMatchPage(eventId, event) {
     }
   }
   const teams = event ? event.teams : [];
-  const formSlot = matchMainEl.querySelector("#recent-form-slot");
-  if (formSlot) {
-    formSlot.innerHTML = `
-      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
-    `;
-  }
-  const predictionSlot = matchMainEl.querySelector("#prediction-slot");
-  if (predictionSlot) predictionSlot.innerHTML = predictionHtml(teams, eventId);
-  const h2hSlot = matchMainEl.querySelector("#h2h-slot");
-  if (h2hSlot) h2hSlot.innerHTML = headToHeadHtml(teams, eventId);
+  paintFormSlots(teams, eventId);
   if (newState === "inProgress") loadCostreamStatuses(matchMainEl, false, teams);
+}
+function recentFormRowsHtml(teams) {
+  return teams
+    .map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${isTbdPlaceholderTeam(t) ? `<span class="form-empty">Not decided yet</span>` : recentFormHtml(t.code)}</span></div>`)
+    .join("");
+}
+function paintFormSlots(teams, eventId) {
+  const slots = { "#recent-form-slot": recentFormRowsHtml(teams), "#prediction-slot": predictionHtml(teams, eventId), "#h2h-slot": headToHeadHtml(teams, eventId) };
+  for (const [selector, html] of Object.entries(slots)) {
+    const el = matchMainEl.querySelector(selector);
+    if (el) el.innerHTML = html;
+  }
+}
+async function loadMatchTeamHistory(eventId, teams) {
+  const detail = await getEventDetails(eventId).catch(() => null);
+  const missing = ((detail && detail.teams) || []).filter((t) => t.id && !isTbdPlaceholderTeam(t) && recentResults(t.code).length < 20);
+  if (!missing.length) return;
+  await Promise.all(missing.map((t) => loadTeamHistory(t.id)));
+  const r = getRoute();
+  if (r.view === "match" && r.id === eventId) paintFormSlots(teams, eventId);
 }
 async function paintMatchPage(eventId, event) {
   let detail = { streams: [], games: [], state: event ? event.state : undefined };
@@ -2810,10 +2840,8 @@ async function paintMatchPage(eventId, event) {
   }
   let streamBlockHtml;
   if (state === "inProgress") {
-
     streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${streamFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
   } else if (state === "completed") {
-
     const playableVods = vods.filter(isPlayableVod);
     streamBlockHtml = playableVods.length
       ? `<h3>Watch VOD</h3>${streamSectionHtml(playableVods, "vod")}`
@@ -2869,7 +2897,6 @@ async function paintMatchPage(eventId, event) {
     </div>
     <div class="match-teams modal-teams">${teams
       .map((t, idx) => {
-
         const star = t.code ? favoriteStarHtml(t.code, "match-team-star") : "";
         const info = teamHtml(t, state === "unstarted");
         const inner = idx === 0 ? `${star}${info}` : `${info}${star}`;
@@ -2883,9 +2910,7 @@ async function paintMatchPage(eventId, event) {
         : ""
     }
     <h3>Recent Form <span class="hint">(last 20 results)</span></h3>
-    <div id="recent-form-slot" class="recent-form-grid">
-      ${teams.map((t) => `<div class="recent-form-row"><span class="form-team">${escapeHtml(t.code || t.name)}</span><span class="form-pips">${recentFormHtml(t.code)}</span></div>`).join("")}
-    </div>
+    <div id="recent-form-slot" class="recent-form-grid">${recentFormRowsHtml(teams)}</div>
     <div id="prediction-slot">${predictionHtml(teams, eventId)}</div>
     <div id="h2h-slot">${headToHeadHtml(teams, eventId)}</div>
     ${bracketLinkHtml}
@@ -2901,7 +2926,6 @@ async function paintMatchPage(eventId, event) {
     const liveGame = pickCurrentLiveGame(detail.games);
     const slot = matchMainEl.querySelector("#live-stats-slot");
     if (slot) {
-
       if (liveGame && liveGame.state !== "completed") {
         const stats = await getLiveStats(liveGame.id);
         slot.innerHTML = liveStatsHtml(stats, teams);
@@ -2974,22 +2998,24 @@ function renderHome() {
 }
 const WORLDS_2026_TEAM_LOGO_BASE = "https://static.lolesports.com/teams/";
 const WORLDS_2026_QUALIFIED = [
-  { code: "GEN", name: "Gen.G", file: "1773829250929_GENGLOGO_GOLD.png" },
+  { code: "GEN", name: "Gen.G Esports", file: "1773829250929_GENGLOGO_GOLD.png" },
   { code: "T1", name: "T1", file: "1726801573959_539px-T1_2019_full_allmode.png" },
   { code: "HLE", name: "Hanwha Life Esports", file: "1631819564399_hle-2021-worlds.png" },
   { code: "DK", name: "Dplus KIA", file: "1673260049703_DPlusKIALOGO11.png" },
   { code: "AL", name: "Anyone's Legend", file: "1641199582689_.png" },
-  { code: "BLG", name: "Bilibili Gaming", file: "1682322954525_Bilibili_Gaming_logo_20211.png" },
-  { code: "TES", name: "Top Esports", file: "1592592064571_TopEsportsTES-01-FullonDark.png" },
+  { code: "BLG", name: "BILIBILI GAMING", file: "1682322954525_Bilibili_Gaming_logo_20211.png" },
+  { code: "TES", name: "TOP ESPORTS", file: "1592592064571_TopEsportsTES-01-FullonDark.png" },
   { code: "IG", name: "Invictus Gaming", file: "1634762917340_300px-Invictus_Gaming_logo.png" },
   { code: "G2", name: "G2 Esports", file: "G2-FullonDark.png" },
   { code: "KC", name: "Karmine Corp", file: "1704714951336_KC.png" },
   { code: "MKOI", name: "Movistar KOI", file: "1734012609283_MKOI_FullColor_Blue.png" },
-  { code: "C9", name: "Cloud9", file: "1736924120254_C9Kia_IconBlue_Transparent_2000x2000.png" },
-  { code: "TLAW", name: "TL Alienware", file: "1769357207762_TLAlienware_Minimal_Bug-White.png" },
+  { code: "C9", name: "Cloud9 Kia", file: "1736924120254_C9Kia_IconBlue_Transparent_2000x2000.png" },
+  { code: "TLAW", name: "Team Liquid Alienware", file: "1769357207762_TLAlienware_Minimal_Bug-White.png" },
+  { code: "LYON", name: "LYON", file: "1743717443673_isotypelyon-03.png" },
   { code: "CFO", name: "CTBC Flying Oyster", file: "1656307849320_CFO_Logo.png" },
   { code: "MVK", name: "MVK Esports", file: "1767089709161_White_Logo.png" },
   { code: "TSW", name: "Team Secret Whales", file: "1774598000328_White_EyeText_600p.png" },
+  { code: "LOS", name: "LOS", file: "1784013312149_LOS-OLaranja.png" },
 ];
 function isWorldsLeague(league) {
   const n = ((league && league.name) || "").toLowerCase();
@@ -3218,7 +3244,6 @@ function isRegularSeasonBlockName(name) {
 function teamSlotHtml(t, feederMatch, feederOutcome = "win", hideScore = false, excludeCode = null) {
   const known = t && !isTbdPlaceholderTeam(t);
   if (known) {
-
     const showScore = !hideScore && t.gameWins !== null && t.gameWins !== undefined;
     return `
       <div class="bracket-match-team ${t.outcome === "win" ? "won" : ""}">
@@ -3257,7 +3282,6 @@ function bracketColumnMatchHtml(event, advanceInfo, feeders, feederOutcome = "wi
   const eventTeams = event.teams || [];
   const teamsHtml = eventTeams
     .map((t, idx) => {
-
       const sibling = eventTeams.find((other, otherIdx) => otherIdx !== idx && other && !isTbdPlaceholderTeam(other));
       const excludeCode = sibling ? (sibling.code || sibling.name || "").toUpperCase() : null;
       let feederForSlot = feeders ? feeders[idx] : null;
@@ -3308,7 +3332,6 @@ function tournamentBracketByBlockHtml(events) {
   if (!realEvents.length) return "";
   const groups = new Map();
   for (const e of realEvents) {
-
     let key = e.blockName || "Matches";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(e);
@@ -3359,7 +3382,6 @@ function tournamentBracketByBlockHtml(events) {
               lastLowerGroup.events[lastLowerGroup.events.length - 1] || null,
             ];
           }
-
 
           const feederOutcome = g.name === "3rd Place Match" ? "loss" : "win";
           return bracketColumnMatchHtml(e, advanceInfo, feeders, feederOutcome);
@@ -3493,15 +3515,21 @@ function bracketSectionV3Html(title, columns, eventsById, swiss) {
     <div class="bracket-grid">${blocks.join("")}</div>
   </section>`;
 }
-function bracketV3Html(standingsV3, eventsById) {
+function roundStageColumns(standings, st) {
+  if (!/^round \d+$/i.test(st.name || "")) return [];
+  const stage = ((standings && standings.stages) || []).find((s) => s.id === st.id);
+  const matches = ((stage && stage.sections) || []).flatMap((sec) => sec.matches || []);
+  return matches.length ? [{ cells: [{ name: st.name, matches }] }] : [];
+}
+function bracketV3Html(standingsV3, eventsById, standings) {
   const sections = ((standingsV3 && standingsV3.stages) || []).flatMap((st) =>
     (st.sections || [])
-      .filter((sec) => (sec.columns || []).length)
       .map((sec) => ({
         title: sec.name && sec.name !== st.name ? `${st.name}: ${sec.name}` : (st.name || sec.name || "Bracket"),
         swiss: /swiss/i.test(`${st.name} ${sec.name}`),
-        columns: sec.columns,
+        columns: (sec.columns || []).length ? sec.columns : roundStageColumns(standings, st),
       }))
+      .filter((sec) => sec.columns.length)
   );
   const html = sections.map((sec) => bracketSectionV3Html(sec.title, sec.columns, eventsById, sec.swiss)).join("");
   if (!html) return "";
@@ -3578,7 +3606,7 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
     : `<p class="idle">No upcoming games loaded yet for this tournament.</p>`;
   const standingsV3 = await getStandingsV3(tournament.id);
   const eventsById = new Map([...bracketEvents, ...recentGames, ...upcomingGames, ...liveGames].map((e) => [e.id, e]));
-  const bracketByBlockHtml = bracketV3Html(standingsV3, eventsById) || tournamentBracketByBlockHtml(bracketEvents);
+  const bracketByBlockHtml = bracketV3Html(standingsV3, eventsById, standings) || tournamentBracketByBlockHtml(bracketEvents);
 
   const bracketSectionHtml = bracketByBlockHtml
     ? `<h3>Bracket</h3>${bracketByBlockHtml}`
@@ -3635,7 +3663,7 @@ function tournamentSwitcherHtml(leagueId, tournaments, league, currentTournament
     const status = tournamentStatus(t);
     const isCurrent = String(t.id) === String(currentTournamentId);
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
-    return `<a class="tournament-switcher-pill ${status} ${isCurrent ? "active" : ""}" href="#/tournament/${encodeURIComponent(leagueId)}/${encodeURIComponent(t.id)}">${statusLabel}: ${tournamentDateRangeLabel(t)}</a>`;
+    return `<a class="tournament-switcher-pill ${status} ${isCurrent ? "active" : ""}" href="#/tournament/${encodeURIComponent(leagueId)}/${encodeURIComponent(t.id)}">${statusLabel}: ${tournamentDateRangeLabel(t, leagueId)}</a>`;
   });
   return `<div class="tournament-switcher">${items.join("")}</div>`;
 }
@@ -3678,7 +3706,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
         <div class="modal-league">${escapeHtml(league?.name || "Tournament")}</div>
-        <div class="modal-state">${tournamentDateRangeLabel(tournament)}</div>
+        <div class="modal-state">${tournamentDateRangeLabel(tournament, leagueId)}</div>
       </div>
     </div>
     ${switcherHtml}
@@ -3752,18 +3780,7 @@ async function renderTeamPage(teamCode) {
     }
     return null;
   })();
-  let details = null;
-  if (fallbackTeam && fallbackTeam.id) {
-    try {
-      details = await getTeamByQuery(fallbackTeam.id);
-    } catch {
-    }
-  }
-  const homeLeagueId = findLeagueIdByName(details && details.homeLeague ? details.homeLeague.name : null);
-  try {
-    if (homeLeagueId) await getSchedule([homeLeagueId]);
-  } catch {
-  }
+  const details = await loadTeamHistory(await teamIdForCode(teamCode)).catch(() => null);
   const name = (details && details.name) || (fallbackTeam && fallbackTeam.name) || teamCode;
   const image = (details && details.image) || (fallbackTeam && fallbackTeam.image) || "";
   const teamForLogo = { name, image };
