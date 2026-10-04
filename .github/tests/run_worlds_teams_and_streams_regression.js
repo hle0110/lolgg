@@ -35,7 +35,8 @@ const T2025 = { id: "old", slug: "worlds_2025", startDate: "2025-10-14", endDate
   );
 
   const q = w.knownQualifiedTeams(WORLDS, T2026);
-  check("All 18 currently qualified Worlds teams are available as a fallback", q.length === 18);
+  check("All 19 qualified Worlds teams are available as a fallback", q.length === 19);
+  check("FURIA, the last qualifier (beat LOUD 3-0 on 2026-10-03), is listed with its Riot id and logo", q.some((x) => x.code === "FUR" && x.name === "FURIA" && x.image === "https://static.lolesports.com/teams/FURIA---black.png") && /id: "100205576309502431", code: "FUR"/.test(app));
   check(
     "The list matches Riot's published qualifiers",
     ["GEN", "T1", "HLE", "DK", "AL", "BLG", "TES", "IG", "G2", "KC", "MKOI", "C9", "TLAW", "LYON", "CFO", "MVK", "TSW", "LOS"].every((c) =>
@@ -52,7 +53,7 @@ const T2025 = { id: "old", slug: "worlds_2025", startDate: "2025-10-14", endDate
   check("Fallback teams do not apply when the tournament has no start date", w.knownQualifiedTeams(WORLDS, {}).length === 0);
 
   const grid = w.teamsGridHtml(q);
-  check("The fallback teams render as clickable team cards", (grid.match(/class="team-card/g) || []).length === 18);
+  check("The fallback teams render as clickable team cards", (grid.match(/class="team-card/g) || []).length === 19);
   check("Team logos are served over https, never mixed-content http", !/src="http:\/\//.test(grid) && /src="https:\/\/static\.lolesports\.com/.test(grid));
   check("safeImageUrl upgrades a plain http image URL to https", w.safeImageUrl("http://static.lolesports.com/x.png") === "https://static.lolesports.com/x.png");
   check("safeImageUrl still rejects a javascript: URL", w.safeImageUrl("javascript:alert(1)") === "");

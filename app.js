@@ -3035,6 +3035,7 @@ const WORLDS_2026_QUALIFIED = [
   { id: "107251245690956393", code: "MVK", name: "MVK Esports", file: "1767089709161_White_Logo.png" },
   { id: "113661839307879869", code: "TSW", name: "Team Secret Whales", file: "1774598000328_White_EyeText_600p.png" },
   { id: "109480204628225868", code: "LOS", name: "LOS", file: "1784013312149_LOS-OLaranja.png" },
+  { id: "100205576309502431", code: "FUR", name: "FURIA", file: "FURIA---black.png" },
 ];
 function isWorldsLeague(league) {
   const n = ((league && league.name) || "").toLowerCase();
@@ -3634,7 +3635,7 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
   const fallbackTeams = standingsTeams.length ? [] : knownQualifiedTeams(league, tournament);
   const teams = standingsTeams.length ? standingsTeams : fallbackTeams;
   const teamsNoteHtml = fallbackTeams.length
-    ? `<p class="hint">Qualified so far, from the official Worlds team list. Remaining slots fill in as regional qualifiers finish.</p>`
+    ? `<p class="hint">All ${fallbackTeams.length} qualified teams, from the official Worlds team list.</p>`
     : "";
 
   const standingsSectionHtml = isEwcLeague(league)
