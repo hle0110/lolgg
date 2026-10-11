@@ -1,5 +1,6 @@
 const fs = require("fs");
 const { JSDOM } = require("jsdom");
+const OLD = JSON.parse(fs.readFileSync("/tmp/jsdomtest/fixtures/old_match_details_2026-10-04.json", "utf8"));
 
 function makeDom() {
   return new JSDOM(`<!doctype html><html><body>
@@ -147,38 +148,8 @@ function matchEvent(id, isoDate, leagueId = "L1") {
     }
     if (u.includes("/getEventDetails")) {
       const idParam = new URL(u).searchParams.get("id");
-      if (idParam === "direct-old-match") {
-        return {
-          ok: true,
-          json: async () => ({
-            data: {
-              event: {
-                id: "direct-old-match",
-                state: "completed",
-                startTime: "2021-08-15T00:00:00Z",
-                streams: [],
-                match: { strategy: { count: 1 }, teams: [] },
-              },
-            },
-          }),
-        };
-      }
-      if (idParam === "direct-new-unresolved-match") {
-        return {
-          ok: true,
-          json: async () => ({
-            data: {
-              event: {
-                id: "direct-new-unresolved-match",
-                state: "inProgress",
-                startTime: "2024-03-01T00:00:00Z",
-                streams: [],
-                match: { strategy: { count: 1 }, teams: [] },
-              },
-            },
-          }),
-        };
-      }
+      if (idParam === OLD.worlds2022KnockoutsMatchId) return { ok: true, json: async () => OLD.worlds2022Detail };
+      if (idParam === OLD.worlds2023FinalMatchId) return { ok: true, json: async () => OLD.worlds2023FinalDetail };
       return { ok: true, json: async () => ({ data: { event: null } }) };
     }
     return { ok: true, json: async () => ({ data: {} }) };
@@ -219,28 +190,18 @@ function matchEvent(id, isoDate, leagueId = "L1") {
   check("Tournaments starting in/after 2023 are included (2024)", tIds.includes("t-new-2024"));
   check("Exactly the two post-cutoff tournaments survive, nothing extra", tournaments.length === 2);
 
-  // ============ Direct-link match page: a pre-cutoff match id is rejected, not half-rendered ============
-  // getEventDetails now carries startTime through, so renderMatchPage can peek at it for an id that
-  // scheduleCache/getLive/getSchedule (all cutoff-filtered) couldn't resolve.
-  const eventDetailsWithStartTime = await window.getEventDetails("direct-old-match");
-  check("getEventDetails now includes startTime on its returned object", eventDetailsWithStartTime.startTime === "2021-08-15T00:00:00Z");
-
-  await window.renderMatchPage("direct-old-match");
   const matchMainEl = window.document.getElementById("match-main");
+  await window.renderMatchPage(OLD.worlds2022KnockoutsMatchId);
+  check("Real capture: Riot has no details for a Worlds 2022 match", OLD.worlds2022Detail.data.event === null);
+  check("Direct-linking to that match says it isn't available", /This match isn't available on lolgg\./.test(matchMainEl.innerHTML));
   check(
-    "Direct-linking to a pre-2023 match id shows a clear 'not available' message instead of a broken/blank match page",
-    /before 2023/.test(matchMainEl.innerHTML) && /isn't available/.test(matchMainEl.innerHTML)
-  );
-  check(
-    "The rejected old-match page does not attempt to render match-page sections (no prediction/h2h slots)",
+    "The unavailable page does not render match-page sections (no prediction/h2h slots)",
     !matchMainEl.innerHTML.includes("prediction-slot") && !matchMainEl.innerHTML.includes("h2h-slot")
   );
 
-  await window.renderMatchPage("direct-new-unresolved-match");
-  check(
-    "A post-2023 match id not yet in scheduleCache (e.g. a brand-new/unresolved match) is NOT rejected - it still renders normally",
-    !/before 2023/.test(matchMainEl.innerHTML)
-  );
+  await window.renderMatchPage(OLD.worlds2023FinalMatchId);
+  check("Real capture: Riot has details for the Worlds 2023 final", !!OLD.worlds2023FinalDetail.data.event);
+  check("A 2023 match not in the loaded schedule still renders", !/isn't available/.test(matchMainEl.innerHTML) && matchMainEl.innerHTML.includes("Watch VOD"));
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

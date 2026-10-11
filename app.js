@@ -418,18 +418,15 @@ async function fetchScheduleFreshForLeague(leagueId) {
   return [...byId.values()];
 }
 async function fetchScheduleFresh(leagueIds) {
-  const byId = new Map();
-  const addAll = (events) => {
-    for (const e of events) byId.set(e.id, e);
-  };
-  if (!leagueIds || !leagueIds.length) {
-    addAll(await fetchScheduleFreshForLeague(null));
-    return [...byId.values()];
-  }
+  if (!leagueIds || !leagueIds.length) return cached("schedule:", SCHEDULE_CACHE_MS, () => fetchScheduleFreshForLeague(null));
   const perLeague = await Promise.all(
-    leagueIds.map((id) => fetchScheduleFreshForLeague(id).catch(() => []))
+    leagueIds.map((id) => {
+      const key = `schedule:${id}`;
+      return cached(key, SCHEDULE_CACHE_MS, () => fetchScheduleFreshForLeague(id)).catch(() => (cache.has(key) ? cache.get(key).value : []));
+    })
   );
-  for (const events of perLeague) addAll(events);
+  const byId = new Map();
+  for (const events of perLeague) for (const e of events) byId.set(e.id, e);
   return [...byId.values()];
 }
 async function getSupplementalCompletedEvents(leagueIds) {
@@ -451,10 +448,8 @@ async function getSupplementalCompletedEvents(leagueIds) {
 }
 async function getSchedule(leagueIds) {
   for (const id of leagueIds || []) loadedLeagueIds.add(id);
-  const key = `schedule:${(leagueIds || []).slice().sort().join(",")}`;
-
   const [events, supplemental] = await Promise.all([
-    cached(key, SCHEDULE_CACHE_MS, () => fetchScheduleFresh(leagueIds)),
+    fetchScheduleFresh(leagueIds),
     getSupplementalCompletedEvents(leagueIds).catch(() => []),
   ]);
 
@@ -1255,7 +1250,7 @@ function knownTeamsForSearch() {
 function siteSearchResults(query) {
   const q = (query || "").trim().toLowerCase();
   if (!q) return [];
-  const leagueResults = curatedLeagues
+  const leagueResults = [...curatedLeagues, ...allLeagues.filter((l) => !curatedLeagues.includes(l) && !/tft/i.test(l.name))]
     .filter((l) => (l.name || "").toLowerCase().includes(q))
     .map((l) => ({ type: "league", id: l.id, label: l.name, hint: "League" }));
   const teamResults = knownTeamsForSearch()
@@ -1273,8 +1268,9 @@ function initSiteSearch() {
   const render = () => {
     const results = siteSearchResults(input.value);
     if (!results.length) {
-      resultsEl.innerHTML = "";
-      resultsEl.classList.remove("open");
+      const typed = !!input.value.trim();
+      resultsEl.innerHTML = typed ? `<div class="site-search-result hint">No teams or leagues match.</div>` : "";
+      resultsEl.classList.toggle("open", typed);
       return;
     }
     resultsEl.innerHTML = results
@@ -2456,7 +2452,7 @@ function baronBadgeHtml(count) {
 }
 function liveStatsHtml(stats, teams) {
   if (!stats || (!stats.blueTeam && !stats.redTeam)) {
-    return `<p class="idle">Live stats aren't available for this match right now.</p>`;
+    return `<p class="idle">Live stats will appear once the game is running.</p>`;
   }
   const row = (label, blue, red) => `
     <div class="livestat-row">
@@ -2736,13 +2732,9 @@ async function renderMatchPage(eventId) {
   }
 
   if (!event) {
-    let peek = null;
-    try {
-      peek = await getEventDetails(eventId);
-    } catch {
-    }
-    if (peek && peek.startTime && !isOnOrAfterCutoff(peek.startTime)) {
-      matchMainEl.innerHTML = `<a class="back-link" href="#/">&larr; Back to schedule</a><p class="idle">This match is from before 2023 and isn't available on lolgg.</p>`;
+    const data = await esportsFetch("/getEventDetails", { id: eventId }).catch(() => null);
+    if (data && !data.data.event) {
+      matchMainEl.innerHTML = `<a class="back-link" href="#/">&larr; Back to schedule</a><p class="idle">This match isn't available on lolgg.</p>`;
       return;
     }
   }
@@ -2758,6 +2750,7 @@ async function renderMatchPage(eventId) {
   }, 30 * 1000);
 }
 async function refreshMatchPage(eventId, event) {
+  event = scheduleCache.find((e) => e.id === eventId) || event;
   let detail;
   try {
     detail = await getEventDetails(eventId);
@@ -2781,7 +2774,7 @@ async function refreshMatchPage(eventId, event) {
         }
       } else {
         stopLiveStatsExtras();
-        slot.innerHTML = `<p class="idle">Live stats will go live once the game goes live.</p>`;
+        slot.innerHTML = liveStatsHtml(null);
       }
     }
   }
@@ -2951,7 +2944,7 @@ async function paintMatchPage(eventId, event) {
         startLiveStatsPolling(eventId, liveGame.id, startTime, teams);
       } else {
         stopLiveStatsExtras();
-        slot.innerHTML = `<p class="idle">Live stats will go live once the game goes live.</p>`;
+        slot.innerHTML = liveStatsHtml(null);
       }
     }
   } else {
@@ -3632,8 +3625,9 @@ async function buildTournamentContentHtml(leagueId, tournament, league) {
     ? `<h3>Bracket</h3>${bracketByBlockHtml}`
     : `<h3>Bracket</h3>${externalBracketFallbackHtml(league)}`;
   const standingsTeams = extractTeamsFromStandings(standings, teamLookup);
-  const fallbackTeams = standingsTeams.length ? [] : knownQualifiedTeams(league, tournament);
-  const teams = standingsTeams.length ? standingsTeams : fallbackTeams;
+  const knownTeams = knownQualifiedTeams(league, tournament);
+  const fallbackTeams = standingsTeams.length < knownTeams.length ? knownTeams : [];
+  const teams = fallbackTeams.length ? fallbackTeams : standingsTeams;
   const teamsNoteHtml = fallbackTeams.length
     ? `<p class="hint">All ${fallbackTeams.length} qualified teams, from the official Worlds team list.</p>`
     : "";
@@ -3896,7 +3890,7 @@ function updateLocalClock() {
     cornerDate.textContent = now.toLocaleDateString(undefined, {
       day: "numeric",
       month: "long",
-      year: "2-digit",
+      year: "numeric",
       timeZone: tz || undefined,
     });
   }

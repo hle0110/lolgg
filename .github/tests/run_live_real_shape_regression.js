@@ -94,7 +94,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     "Live stats render the real captured gold totals",
     slot && slot.textContent.includes(frame.blueTeam.totalGold.toLocaleString()) && slot.textContent.includes(frame.redTeam.totalGold.toLocaleString())
   );
-  check("Live stats do not show the unavailable message", slot && !slot.textContent.includes("aren't available"));
+  check("Live stats do not show the waiting message", slot && !slot.textContent.includes("Live stats will appear once the game is running."));
+  check("No stats yet (feed 204) shows the waiting message", w4.liveStatsHtml(null, []).includes("Live stats will appear once the game is running."));
 
   check("Real capture: Riot lists no Twitch or YouTube stream for this match", detailEvent.streams.every((s) => !["twitch", "youtube"].includes(s.provider)));
   const buttons = [...main.querySelectorAll(".locale-btn")].map((b) => b.textContent.trim());

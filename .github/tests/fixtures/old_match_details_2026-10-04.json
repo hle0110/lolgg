@@ -1,0 +1,183 @@
+{
+ "source": "Riot esports API getEventDetails, captured 2026-10-04T23:15Z. Nothing edited; the 2023 detail keeps only the first VOD per game.",
+ "worlds2022KnockoutsMatchId": "108998961199764684",
+ "worlds2022Detail": {
+  "data": {
+   "event": null
+  }
+ },
+ "worlds2023FinalMatchId": "110853020184706765",
+ "worlds2023FinalDetail": {
+  "data": {
+   "event": {
+    "id": "110853020184706765",
+    "type": "match",
+    "tournament": {
+     "id": "110852926142971547"
+    },
+    "league": {
+     "id": "98767975604431411",
+     "slug": "worlds",
+     "image": "http://static.lolesports.com/leagues/1592594612171_WorldsDarkBG.png",
+     "name": "Worlds"
+    },
+    "match": {
+     "strategy": {
+      "count": 5
+     },
+     "teams": [
+      {
+       "id": "98767991853197861",
+       "name": "T1",
+       "code": "T1",
+       "image": "http://static.lolesports.com/teams/1726801573959_539px-T1_2019_full_allmode.png",
+       "result": {
+        "gameWins": 3
+       }
+      },
+      {
+       "id": "99566404853058754",
+       "name": "WeiboGaming",
+       "code": "WBG",
+       "image": "http://static.lolesports.com/teams/1641202879910_3.png",
+       "result": {
+        "gameWins": 0
+       }
+      }
+     ],
+     "games": [
+      {
+       "number": 1,
+       "id": "110853020184706766",
+       "state": "completed",
+       "teams": [
+        {
+         "id": "98767991853197861",
+         "side": "blue"
+        },
+        {
+         "id": "99566404853058754",
+         "side": "red"
+        }
+       ],
+       "vods": [
+        {
+         "id": "111437920968280936",
+         "parameter": "9cpmMA-fPRI",
+         "locale": "en-US",
+         "mediaLocale": {
+          "locale": "en-US",
+          "englishName": "English (North America)",
+          "translatedName": "English (North America)"
+         },
+         "provider": "youtube",
+         "offset": 0,
+         "firstFrameTime": "2023-11-19T07:50:49Z",
+         "startMillis": null,
+         "endMillis": null
+        }
+       ]
+      },
+      {
+       "number": 2,
+       "id": "110853020184706767",
+       "state": "completed",
+       "teams": [
+        {
+         "id": "98767991853197861",
+         "side": "blue"
+        },
+        {
+         "id": "99566404853058754",
+         "side": "red"
+        }
+       ],
+       "vods": [
+        {
+         "id": "111436885133423102",
+         "parameter": "thRl3AIaPek",
+         "locale": "en-US",
+         "mediaLocale": {
+          "locale": "en-US",
+          "englishName": "English (North America)",
+          "translatedName": "English (North America)"
+         },
+         "provider": "youtube",
+         "offset": 0,
+         "firstFrameTime": "2023-11-19T09:45:01Z",
+         "startMillis": null,
+         "endMillis": null
+        }
+       ]
+      },
+      {
+       "number": 3,
+       "id": "110853020184706768",
+       "state": "completed",
+       "teams": [
+        {
+         "id": "98767991853197861",
+         "side": "blue"
+        },
+        {
+         "id": "99566404853058754",
+         "side": "red"
+        }
+       ],
+       "vods": [
+        {
+         "id": "111437920969917301",
+         "parameter": "LmD_ShTbIq0",
+         "locale": "en-US",
+         "mediaLocale": {
+          "locale": "en-US",
+          "englishName": "English (North America)",
+          "translatedName": "English (North America)"
+         },
+         "provider": "youtube",
+         "offset": 0,
+         "firstFrameTime": "2023-11-19T10:24:24Z",
+         "startMillis": null,
+         "endMillis": null
+        }
+       ]
+      },
+      {
+       "number": 4,
+       "id": "110853020184706769",
+       "state": "unneeded",
+       "teams": [
+        {
+         "id": "98767991853197861",
+         "side": "blue"
+        },
+        {
+         "id": "99566404853058754",
+         "side": "red"
+        }
+       ],
+       "vods": []
+      },
+      {
+       "number": 5,
+       "id": "110853020184706770",
+       "state": "unneeded",
+       "teams": [
+        {
+         "id": "99566404853058754",
+         "side": "blue"
+        },
+        {
+         "id": "98767991853197861",
+         "side": "red"
+        }
+       ],
+       "vods": []
+      }
+     ]
+    },
+    "streams": []
+   }
+  }
+ }
+}

@@ -59,8 +59,8 @@ const T2025 = { id: "old", slug: "worlds_2025", startDate: "2025-10-14", endDate
   check("safeImageUrl still rejects a javascript: URL", w.safeImageUrl("javascript:alert(1)") === "");
 
   check(
-    "Real standings data still wins over the fallback",
-    /const teams = standingsTeams\.length \? standingsTeams : fallbackTeams;/.test(app)
+    "Real standings data wins over the fallback once it holds every qualified team",
+    /const teams = fallbackTeams\.length \? fallbackTeams : standingsTeams;/.test(app)
   );
   check(
     "The duplicate 'Full tournament page on Liquipedia' link was removed",
