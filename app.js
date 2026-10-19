@@ -749,6 +749,7 @@ function resolveMatchTeam(t, lookup) {
   if (!t) return null;
   const found = (t.id && lookup.get(`id:${t.id}`)) || (t.slug && lookup.get(`slug:${t.slug}`));
   if (found) return { ...found, result: t.result };
+  if (t.code) return t;
 
   const looksLikeRealSlug = t.slug && /[a-z]/i.test(t.slug);
   return { code: null, name: looksLikeRealSlug ? slugToTitleCase(t.slug) : null, result: t.result };
