@@ -13,7 +13,7 @@ const vm = require("vm");
   );
   check(
     "computeEffectiveState no longer blindly trusts rawState 'completed' when there's zero score/outcome evidence behind it",
-    /const untrustedCompleted = rawState === "completed" && hasNoRecordedProgress\(teams\);/.test(app)
+    /if \(rawState === "completed" && hasNoRecordedProgress\(teams\)\) return "unstarted";/.test(app)
   );
 
   const context = {};
@@ -25,7 +25,7 @@ const vm = require("vm");
     ${app.match(/function seriesOutcomeDecided\(teams\) {[\s\S]*?\n}/)[0]}
     ${app.match(/function seriesInProgressByScore\(teams\) {[\s\S]*?\n}/)[0]}
     ${app.match(/function hasNoRecordedProgress\(teams\) {[\s\S]*?\n}/)[0]}
-    ${app.match(/function computeEffectiveState\(rawState, teams, startTime\) {[\s\S]*?\n}/)[0]}
+    ${app.match(/function computeEffectiveState\(rawState, teams\) {[\s\S]*?\n}/)[0]}
     `,
     context
   );
@@ -40,8 +40,8 @@ const vm = require("vm");
       { gameWins: 0, outcome: null },
     ];
     check(
-      "A 'completed' event with 0-0/no-outcome teams that started 20 minutes ago is corrected to inProgress (Riot's real bogus-completed bug, e.g. WE vs EDG)",
-      context.computeEffectiveState("completed", zeroZeroTeams, iso(-20 * 60 * 1000)) === "inProgress"
+      "A 'completed' event with 0-0/no-outcome teams that started 20 minutes ago is not trusted as Final; it becomes unstarted until Riot's game state shows a game running (Riot's real bogus-completed bug, e.g. WE vs EDG)",
+      context.computeEffectiveState("completed", zeroZeroTeams, iso(-20 * 60 * 1000)) === "unstarted"
     );
     check(
       "That same bogus 'completed' event, if scheduled far in the future, is corrected back to unstarted rather than trusted as Final",
