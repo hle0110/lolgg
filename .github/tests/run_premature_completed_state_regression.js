@@ -11,10 +11,6 @@ const vm = require("vm");
     "deriveMissingOutcomes no longer treats an unknown bestOf as an automatically clinched series (this was the root cause of live Bo3/Bo5 matches like a 1-0 series lead showing as Completed)",
     /const seriesClinched = threshold !== null && leaderWins >= threshold;/.test(app)
   );
-  check(
-    "computeEffectiveState's early-live window now starts 15 minutes before the scheduled start time, not only after it",
-    /if \(elapsedMs > -15 \* 60 \* 1000 && elapsedMs < 5 \* 60 \* 60 \* 1000\) return "inProgress";/.test(app)
-  );
 
   const context = {};
   vm.createContext(context);
@@ -24,7 +20,7 @@ const vm = require("vm");
     ${app.match(/function deriveMissingOutcomes\(teams, bestOf\) {[\s\S]*?\n}/)[0]}
     ${app.match(/function seriesOutcomeDecided\(teams\) {[\s\S]*?\n}/)[0]}
     ${app.match(/function seriesInProgressByScore\(teams\) {[\s\S]*?\n}/)[0]}
-    ${app.match(/function computeEffectiveState\(rawState, teams, startTime\) {[\s\S]*?\n}/)[0]}
+    ${app.match(/function computeEffectiveState\(rawState, teams\) {[\s\S]*?\n}/)[0]}
     `,
     context
   );
@@ -83,16 +79,12 @@ const vm = require("vm");
   Date.now = () => now;
   try {
     check(
-      "A match scheduled 10 minutes from now (inside the 15-min early window) is treated as live",
-      context.computeEffectiveState("unstarted", [], iso(10 * 60 * 1000)) === "inProgress"
+      "A match Riot lists as unstarted stays unstarted 10 minutes before its start time",
+      context.computeEffectiveState("unstarted", [], iso(10 * 60 * 1000)) === "unstarted"
     );
     check(
-      "A match scheduled 30 minutes from now (outside the 15-min early window) correctly stays unstarted",
-      context.computeEffectiveState("unstarted", [], iso(30 * 60 * 1000)) === "unstarted"
-    );
-    check(
-      "A match whose scheduled time already passed (previous game ran long/short) is still treated as live",
-      context.computeEffectiveState("unstarted", [], iso(-60 * 60 * 1000)) === "inProgress"
+      "A match Riot lists as unstarted stays unstarted after its start time passes (a game in progress is detected from Riot's game state instead)",
+      context.computeEffectiveState("unstarted", [], iso(-60 * 60 * 1000)) === "unstarted"
     );
   } finally {
     Date.now = realNow;

@@ -333,17 +333,10 @@ function seriesInProgressByScore(teams) {
 function hasNoRecordedProgress(teams) {
   return !teams || !teams.length || teams.every((t) => !t.gameWins && !t.outcome);
 }
-function computeEffectiveState(rawState, teams, startTime) {
+function computeEffectiveState(rawState, teams) {
   if (seriesOutcomeDecided(teams)) return "completed";
   if (seriesInProgressByScore(teams)) return "inProgress";
-
-  const untrustedCompleted = rawState === "completed" && hasNoRecordedProgress(teams);
-
-  if ((rawState === "unstarted" || untrustedCompleted) && startTime) {
-    const elapsedMs = Date.now() - new Date(startTime).getTime();
-    if (elapsedMs > -15 * 60 * 1000 && elapsedMs < 5 * 60 * 60 * 1000) return "inProgress";
-  }
-  if (untrustedCompleted) return "unstarted";
+  if (rawState === "completed" && hasNoRecordedProgress(teams)) return "unstarted";
   return rawState;
 }
 function normalizeEvent(e) {
@@ -352,7 +345,7 @@ function normalizeEvent(e) {
   return {
     id: e.match ? e.match.id : e.id,
     startTime: e.startTime,
-    state: computeEffectiveState(e.state, teams, e.startTime),
+    state: computeEffectiveState(e.state, teams),
     blockName: e.blockName,
     bestOf,
     league: e.league ? normalizeLeague(e.league) : null,
@@ -510,18 +503,19 @@ async function getEventDetails(id) {
     const bestOf = event.match && event.match.strategy ? event.match.strategy.count : null;
     const teams = event.match && event.match.teams ? deriveMissingOutcomes(event.match.teams.map(normalizeTeam), bestOf) : [];
     const gameLive = games.some((g) => g.state === "inProgress");
-    const state = computeEffectiveState(event.state, teams, event.startTime) || (gameLive ? "inProgress" : undefined);
+    const state = computeEffectiveState(event.state, teams) || (gameLive ? "inProgress" : undefined);
     return { id: event.id, state, streams, games, teams, bestOf, startTime: event.startTime || null };
   });
 }
 
-function startsWithinNextHour(startTime) {
+const LATE_START_GRACE_MS = 5 * 60 * 60 * 1000;
+function nearStartTime(startTime) {
   if (!startTime) return false;
   const diffMs = new Date(startTime).getTime() - Date.now();
-  return diffMs > 0 && diffMs <= 60 * 60 * 1000;
+  return diffMs > -LATE_START_GRACE_MS && diffMs <= 60 * 60 * 1000;
 }
 async function checkEarlyLiveMatches() {
-  const candidates = scheduleCache.filter((e) => e.state === "unstarted" && startsWithinNextHour(e.startTime));
+  const candidates = scheduleCache.filter((e) => e.state === "unstarted" && nearStartTime(e.startTime));
   if (!candidates.length) return;
   await Promise.all(
     candidates.map(async (e) => {
@@ -546,16 +540,10 @@ function pickCurrentLiveGame(games) {
 }
 async function getTournamentsForLeague(leagueId) {
   return cached(`tournaments:${leagueId}`, 6 * 60 * 60 * 1000, async () => {
-    try {
-      const data = await esportsFetch("/getTournamentsForLeague", { leagueId });
-      const leagues = (data.data && data.data.leagues) || [];
-      const league = leagues[0];
-      const tournaments = (league && league.tournaments) || [];
-      return tournaments.filter((t) => isOnOrAfterCutoff(t.startDate));
-    } catch {
-      return [];
-    }
-  });
+    const data = await esportsFetch("/getTournamentsForLeague", { leagueId });
+    const league = ((data.data && data.data.leagues) || [])[0];
+    return ((league && league.tournaments) || []).filter((t) => isOnOrAfterCutoff(t.startDate));
+  }).catch(() => []);
 }
 
 async function getCompletedEventsForTournament(tournamentId) {
@@ -587,14 +575,9 @@ async function getCompletedEventsForTournament(tournamentId) {
 }
 async function getTeamByQuery(value) {
   return cached(`teamByQuery:${value}`, 6 * 60 * 60 * 1000, async () => {
-    try {
-      const data = await esportsFetch("/getTeams", { id: value });
-      const teams = (data.data && data.data.teams) || [];
-      return teams[0] || null;
-    } catch {
-      return null;
-    }
-  });
+    const data = await esportsFetch("/getTeams", { id: value });
+    return ((data.data && data.data.teams) || [])[0] || null;
+  }).catch(() => null);
 }
 async function loadTeamHistory(teamId) {
   const team = teamId ? await getTeamByQuery(teamId) : null;
@@ -1755,11 +1738,7 @@ async function loadTournamentsTab(silent = false) {
 async function eventIsGenuinelyLive(event) {
   try {
     const detail = await getEventDetails(event.id);
-    const state = detail.state || event.state;
-    if (state === "inProgress") return true;
-    const knownStart = detail.startTime || (event && event.startTime) || null;
-    if (!knownStart) return false;
-    return computeEffectiveState(state, detail.teams, knownStart) === "inProgress";
+    return computeEffectiveState(detail.state || event.state, detail.teams) === "inProgress";
   } catch {
     return false;
   }
@@ -1790,7 +1769,7 @@ async function noLiveHtml() {
   try {
     const now = Date.now();
     const next = (await getSchedule(effectiveLeagueIds()))
-      .filter((e) => e.state === "unstarted" && new Date(e.startTime).getTime() > now)
+      .filter((e) => e.state === "unstarted" && new Date(e.startTime).getTime() > now - LATE_START_GRACE_MS)
       .filter((e) => !myTeamsOnlyFilter || eventInvolvesFavoriteTeam(e))
       .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))[0];
     return next ? `${msg}<h3 class="day-heading">Next up</h3>${matchCardHtml(next)}` : msg;
@@ -1830,7 +1809,7 @@ async function loadScheduleTab(state, silent = false) {
     const now = Date.now();
     let filtered = events.filter((e) => e.state === state);
     if (state === "unstarted") {
-      filtered = filtered.filter((e) => new Date(e.startTime).getTime() > now);
+      filtered = filtered.filter((e) => new Date(e.startTime).getTime() > now - LATE_START_GRACE_MS);
       filtered.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     } else if (state === "completed") {
       filtered.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
@@ -1938,10 +1917,10 @@ function watchUrlFor(item, kind) {
   const provider = providerName(item.provider);
   const isVod = !!kind && kind !== "live";
   if (provider === "twitch") {
-    if (isVod) return `https://www.twitch.tv/videos/${item.parameter}`;
-    return `https://twitch.tv/${item.parameter}`;
+    if (isVod) return `https://www.twitch.tv/videos/${encodeURIComponent(item.parameter)}`;
+    return `https://twitch.tv/${encodeURIComponent(item.parameter)}`;
   }
-  if (provider === "youtube") return `https://www.youtube.com/watch?v=${extractYoutubeId(item.parameter)}`;
+  if (provider === "youtube") return `https://www.youtube.com/watch?v=${encodeURIComponent(extractYoutubeId(item.parameter))}`;
   if (provider === "huya") return `https://www.huya.com/${encodeURIComponent(item.parameter)}`;
   return null;
 }
@@ -2333,12 +2312,12 @@ function ddragonVersionFromPatch(patchVersion) {
 }
 function itemIconUrl(itemId, ddragonVersion) {
   if (!itemId || !ddragonVersion) return null;
-  return `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/item/${itemId}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/${encodeURIComponent(ddragonVersion)}/img/item/${encodeURIComponent(itemId)}.png`;
 }
 
 function championIconUrl(championId, ddragonVersion) {
   if (!championId || !ddragonVersion) return null;
-  return `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/champion/${championId}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/${encodeURIComponent(ddragonVersion)}/img/champion/${encodeURIComponent(championId)}.png`;
 }
 function playerRowHtml(participant, meta, side, items, ddragonVersion, goldDiff) {
   const gold = participant && typeof participant.totalGold === "number" ? participant.totalGold.toLocaleString() : "-";
@@ -2361,7 +2340,7 @@ function playerRowHtml(participant, meta, side, items, ddragonVersion, goldDiff)
       : "";
   const champIconHtml = championIcon
     ? `<span class="liveplayer-champ-icon-wrap">
-        <img src="${championIcon}" alt="${champion}" class="liveplayer-champ-icon" loading="lazy" onerror="this.style.visibility='hidden'">
+        <img src="${championIcon}" alt="${escapeHtml(champion)}" class="liveplayer-champ-icon" loading="lazy" onerror="this.style.visibility='hidden'">
         ${level !== null ? `<span class="liveplayer-champ-level">${level}</span>` : ""}
       </span>`
     : "";
@@ -2375,7 +2354,7 @@ function playerRowHtml(participant, meta, side, items, ddragonVersion, goldDiff)
         ${champIconHtml}
         <div class="liveplayer-id">
           <span class="liveplayer-champ">${escapeHtml(champion)}</span>
-          <span class="liveplayer-name">${summoner}</span>
+          <span class="liveplayer-name">${escapeHtml(summoner)}</span>
         </div>
         ${hpPct !== null ? `<div class="liveplayer-hp"><div class="liveplayer-hp-fill ${side}" style="width:${hpPct}%"></div></div>` : ""}
         <span class="liveplayer-kda">${kda}</span>
@@ -2704,7 +2683,9 @@ function stopMatchPagePolling() {
   stopLiveStatsExtras();
   stopMatchPageCountdown();
 }
+let matchPageToken = 0;
 async function renderMatchPage(eventId) {
+  const token = ++matchPageToken;
   stopMatchPagePolling();
   stopTournamentPagePolling();
   matchPageStreamState = null;
@@ -2734,16 +2715,19 @@ async function renderMatchPage(eventId) {
 
   if (!event) {
     const data = await esportsFetch("/getEventDetails", { id: eventId }).catch(() => null);
+    if (token !== matchPageToken) return;
     if (data && !data.data.event) {
       matchMainEl.innerHTML = `<a class="back-link" href="#/">&larr; Back to schedule</a><p class="idle">This match isn't available on lolgg.</p>`;
       return;
     }
   }
+  if (token !== matchPageToken) return;
   await paintMatchPage(eventId, event);
+  if (token !== matchPageToken) return;
   loadMatchTeamHistory(eventId, event ? event.teams : []).catch(() => {});
   matchPagePollTimer = setInterval(() => {
     const r = getRoute();
-    if (r.view === "match" && r.id === eventId) {
+    if (token === matchPageToken && r.view === "match" && r.id === eventId) {
       refreshMatchPage(eventId, event);
     } else {
       stopMatchPagePolling();
@@ -2751,6 +2735,7 @@ async function renderMatchPage(eventId) {
   }, 30 * 1000);
 }
 async function refreshMatchPage(eventId, event) {
+  const token = matchPageToken;
   event = scheduleCache.find((e) => e.id === eventId) || event;
   let detail;
   try {
@@ -2758,6 +2743,7 @@ async function refreshMatchPage(eventId, event) {
   } catch {
     return;
   }
+  if (token !== matchPageToken) return;
   const newState = detail.state || (event ? event.state : "unstarted");
   if (newState !== matchPageStreamState) {
     await paintMatchPage(eventId, event);
@@ -2770,6 +2756,7 @@ async function refreshMatchPage(eventId, event) {
       if (liveGame && liveGame.state !== "completed") {
         if (liveGame.id !== currentLiveStatsGameId) {
           const stats = await getLiveStats(liveGame.id);
+          if (token !== matchPageToken) return;
           slot.innerHTML = liveStatsHtml(stats, event ? event.teams : []);
           startLiveStatsPolling(eventId, liveGame.id, event ? event.startTime : null, event ? event.teams : []);
         }
@@ -2805,11 +2792,12 @@ async function loadMatchTeamHistory(eventId, teams) {
   if (r.view === "match" && r.id === eventId) paintFormSlots(teams, eventId);
 }
 async function paintMatchPage(eventId, event) {
+  const token = matchPageToken;
   let detail = { streams: [], games: [], state: event ? event.state : undefined };
   try {
     detail = await getEventDetails(eventId);
   } catch {
-    matchMainEl.innerHTML = `<a class="back-link" href="#/">&larr; Back to schedule</a><p class="idle">Couldn't load this match right now.</p>`;
+    if (token === matchPageToken) matchMainEl.innerHTML = `<a class="back-link" href="#/">&larr; Back to schedule</a><p class="idle">Couldn't load this match right now.</p>`;
     return;
   }
   const state = detail.state || (event ? event.state : "unstarted");
@@ -2897,6 +2885,7 @@ async function paintMatchPage(eventId, event) {
         <div class="modal-league">${escapeHtml(league?.name || "")}${event?.blockName ? ` · ${escapeHtml(event.blockName)}` : ""}</div>
         <div class="modal-state">${state === "inProgress" ? "Live" : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
       </div>`;
+  if (token !== matchPageToken) return;
   const titleTeams = teams.filter((t) => !isTbdPlaceholderTeam(t)).map((t) => t.code || t.name);
   setPageTitle([titleTeams.length === 2 ? titleTeams.join(" vs ") : "", league && league.name].filter(Boolean).join(" · "));
   matchMainEl.innerHTML = `
@@ -2941,6 +2930,7 @@ async function paintMatchPage(eventId, event) {
     if (slot) {
       if (liveGame && liveGame.state !== "completed") {
         const stats = await getLiveStats(liveGame.id);
+        if (token !== matchPageToken) return;
         slot.innerHTML = liveStatsHtml(stats, teams);
         startLiveStatsPolling(eventId, liveGame.id, startTime, teams);
       } else {
@@ -3463,7 +3453,7 @@ function bracketSlotV3Html(t, origin, byStruct, hideScore) {
 function bracketMatchV3Html(x, byStruct, eventsById) {
   const ev = eventsById.get(x.m.id) || {};
   const teams = x.m.teams.map(normalizeTeam);
-  const state = ev.state || computeEffectiveState(x.m.state, teams, ev.startTime);
+  const state = ev.state || computeEffectiveState(x.m.state, teams);
   const slots = x.m.teams.map((raw, i) => bracketSlotV3Html(teams[i], raw.origin, byStruct, state === "unstarted")).join("");
   const status =
     state === "inProgress"
@@ -3682,7 +3672,9 @@ function tournamentSwitcherHtml(leagueId, tournaments, league, currentTournament
   });
   return `<div class="tournament-switcher">${items.join("")}</div>`;
 }
+let tournamentPageToken = 0;
 async function renderTournamentPage(leagueId, tournamentId) {
+  const token = ++tournamentPageToken;
   stopMatchPagePolling();
   stopTournamentPagePolling();
   homeViewEl.classList.add("hidden");
@@ -3699,6 +3691,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
     tournaments = await getTournamentsForLeague(leagueId);
   } catch {
   }
+  if (token !== tournamentPageToken) return;
   const tournament = (tournamentId && tournaments.find((t) => String(t.id) === String(tournamentId))) || pickDisplayTournament(tournaments);
   if (!tournament) {
     tournamentMainEl.innerHTML = `
@@ -3713,6 +3706,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
     return;
   }
   const contentHtml = await buildTournamentContentHtml(leagueId, tournament, league);
+  if (token !== tournamentPageToken) return;
   const switcherHtml = tournamentSwitcherHtml(leagueId, tournaments, league, tournament.id);
   setPageTitle(league && league.name);
   tournamentMainEl.innerHTML = `
@@ -3731,14 +3725,16 @@ async function renderTournamentPage(leagueId, tournamentId) {
 
   tournamentPagePollTimer = setInterval(async () => {
     const r = getRoute();
-    if (!(r.view === "tournament" && r.id === leagueId && (r.tournamentId || "") === (tournamentId || ""))) {
+    if (token !== tournamentPageToken || !(r.view === "tournament" && r.id === leagueId && (r.tournamentId || "") === (tournamentId || ""))) {
       stopTournamentPagePolling();
       return;
     }
     const slot = tournamentMainEl.querySelector("#tournament-content-slot");
     if (!slot) return;
     try {
-      slot.innerHTML = await buildTournamentContentHtml(leagueId, tournament, league);
+      const html = await buildTournamentContentHtml(leagueId, tournament, league);
+      if (token !== tournamentPageToken) return;
+      slot.innerHTML = html;
       wirePagination(tournamentMainEl);
     } catch {
     }

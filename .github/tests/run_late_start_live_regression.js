@@ -139,8 +139,8 @@ function makeDom() {
   };
   const bogusButRecentlyStarted = await window.eventIsGenuinelyLive(bogusZeroZeroEvent);
   check(
-    "A 'completed' event with a 0-0 score and no recorded outcome (Riot's known bogus-completed-events bug) that started recently is treated as live, not trusted as finished",
-    bogusButRecentlyStarted === true
+    "A 'completed' event with a 0-0 score and no recorded outcome (Riot's known bogus-completed-events bug) is not shown as live while Riot reports no game running",
+    bogusButRecentlyStarted === false
   );
 
   const failed = results.filter((r) => !r.pass);
