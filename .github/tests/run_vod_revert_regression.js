@@ -80,7 +80,7 @@ function makeDom(matchId) {
   const matchMainEl = window.document.getElementById("match-main");
 
   check("No 'Game N' per-game labels appear anymore", !/>Game \d</.test(matchMainEl.innerHTML));
-  check("Both games' VODs are merged into a single locale-switch list, as before", matchMainEl.innerHTML.includes("locale-switch"));
+  check("Both games' English VODs collapse to one button, since only one VOD per language is shown (owner decision 2026-10-21)", !matchMainEl.innerHTML.includes("locale-switch") && matchMainEl.innerHTML.includes("revertedvo1"));
   check("Exactly one poster is shown up front (single merged section, not one per game)", matchMainEl.querySelectorAll(".stream-poster").length === 1);
 
   const failed = results.filter((r) => !r.pass);

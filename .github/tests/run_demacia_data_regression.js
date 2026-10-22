@@ -41,6 +41,7 @@ window.fetch = async (url) => {
   const label = window.tournamentDateRangeLabel(tournament, DC);
   check("Demacia Cup shows its first match day (Oct 3), not Riot's padded start date (Oct 2)", label.includes("Oct 3") && !label.includes("Oct 2 "));
   check("Demacia Cup still ends on the day of its final (Oct 17)", label.includes("Oct 17, 2026"));
+  check("Tournament date ranges read \"to\" between the two dates, not a hyphen", / to /.test(label) && !/ - /.test(label));
   check("With no league to look matches up in, Riot's own dates are kept", window.tournamentDateRangeLabel(tournament).startsWith("Oct 2 "));
 
   const v3 = fx.standingsV3[0];

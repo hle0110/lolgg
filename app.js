@@ -637,7 +637,7 @@ function tournamentDateRangeLabel(t, leagueId) {
   const fmt = (d, year) => new Date(d.ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: year ? "numeric" : undefined, timeZone: d.timeZone });
   if (!end) return fmt(start, true);
   const sameYear = new Date(start.ms).getUTCFullYear() === new Date(end.ms).getUTCFullYear();
-  return `${fmt(start, !sameYear)} - ${fmt(end, true)}`;
+  return `${fmt(start, !sameYear)} to ${fmt(end, true)}`;
 }
 function pickDisplayTournament(tournaments) {
   if (!tournaments || !tournaments.length) return null;
@@ -2843,7 +2843,11 @@ async function paintMatchPage(eventId, event) {
   if (state === "inProgress") {
     streamBlockHtml = `<h3>Live Stream</h3>${streamSectionHtml(liveStreamItems, "live")}${streamFallbackHint}${await officialStreamLinksHtml(league, startTime)}${costreamSectionHtml()}`;
   } else if (state === "completed") {
-    const playableVods = vods.filter(isPlayableVod);
+    const seenLabels = new Set();
+    const playableVods = vods.filter(isPlayableVod).filter((v) => {
+      const key = `${providerName(v.provider)}:${v.locale}`;
+      return !seenLabels.has(key) && seenLabels.add(key);
+    });
     streamBlockHtml = playableVods.length
       ? `<h3>Watch VOD</h3>${streamSectionHtml(playableVods, "vod")}`
       : `<h3>Watch Highlights</h3><div class="no-stream">No official VOD link available for this match.</div>${highlightsSearchLinksHtml(league, teams)}`;
