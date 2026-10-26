@@ -875,6 +875,21 @@ function standingsTableRowHtml(ordinal, t) {
     </tr>`;
 }
 
+function swissRecordRankings(section) {
+  const byCode = new Map();
+  for (const m of section.matches || []) {
+    if (m.state !== "completed") continue;
+    for (const t of m.teams || []) {
+      const outcome = t.result && t.result.outcome;
+      if (isTbdPlaceholderTeam(t) || (outcome !== "win" && outcome !== "loss")) continue;
+      const row = byCode.get(t.code) || { ...t, record: { wins: 0, losses: 0 } };
+      row.record[outcome === "win" ? "wins" : "losses"] += 1;
+      byCode.set(t.code, row);
+    }
+  }
+  const teams = [...byCode.values()].sort((a, b) => b.record.wins - a.record.wins || a.record.losses - b.record.losses || a.code.localeCompare(b.code));
+  return teams.map((t) => ({ ordinal: 1 + teams.findIndex((x) => x.record.wins === t.record.wins && x.record.losses === t.record.losses), teams: [t] }));
+}
 function standingsHtml(standings, providedLookup) {
   if (!standings || !standings.stages || !standings.stages.length) {
     return `<p class="idle">No standings/bracket data available for this tournament yet.</p>`;
@@ -885,13 +900,15 @@ function standingsHtml(standings, providedLookup) {
       const renderedSections = sections
         .map((section) => {
           let rankingsHtml = "";
-          if (section.rankings && section.rankings.length) {
-            const rows = section.rankings
+          const counted = !(section.rankings && section.rankings.length) && /swiss/i.test(`${stage.name} ${section.name}`);
+          const rankings = counted ? swissRecordRankings(section) : section.rankings || [];
+          if (rankings.length) {
+            const rows = rankings
               .flatMap((r) => (r.teams || []).filter((t) => !isTbdPlaceholderTeam(t)).map((t) => ({ ordinal: r.ordinal, t })))
               .map(({ ordinal, t }) => standingsTableRowHtml(ordinal, t))
               .join("");
             if (rows) {
-              rankingsHtml = `<table class="standings-table"><thead><tr><th>#</th><th>Team</th><th class="standings-th-record">W-L</th></tr></thead><tbody>${rows}</tbody></table>`;
+              rankingsHtml = `<table class="standings-table"><thead><tr><th>#</th><th>Team</th><th class="standings-th-record">W-L</th></tr></thead><tbody>${rows}</tbody></table>${counted ? `<p class="hint">Records counted from finished Swiss matches.</p>` : ""}`;
             }
           }
           if (!rankingsHtml) return null;
