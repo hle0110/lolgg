@@ -1,0 +1,34 @@
+name: live capture
+on:
+  schedule:
+    - cron: "*/10 20-23 29 10 *"
+    - cron: "*/10 0 30 10 *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: live-capture
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Skip if already captured
+        id: done
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "count=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=worlds-live-capture-2026-10-29" -q .total_count)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.done.outputs.count == '0'
+      - name: Capture if a game is live
+        id: cap
+        if: steps.done.outputs.count == '0'
+        run: python3 .github/live_capture.py capture
+      - uses: actions/upload-artifact@v4
+        if: steps.cap.outputs.captured == 'true'
+        with:
+          name: worlds-live-capture-2026-10-29
+          path: capture/worlds_live_2026-10-29.json
+          retention-days: 30
