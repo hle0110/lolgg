@@ -281,6 +281,14 @@ a.team-card:hover {
   margin: 0 auto;
   padding: 0 20px 60px;
 }
+.data-freshness {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 2px 0 10px;
+}
+.data-freshness:empty {
+  display: none;
+}
 .loading, .idle {
   color: var(--muted);
   font-size: 13px;

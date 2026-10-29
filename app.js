@@ -250,7 +250,7 @@ function cached(key, ttlMs, fn) {
     return value;
   });
 }
-async function esportsFetch(path, params = {}) {
+function esportsUrl(path, params = {}) {
   const url = new URL(ESPORTS_BASE + path);
   url.searchParams.set("hl", "en-US");
   for (const [k, v] of Object.entries(params)) {
@@ -261,9 +261,32 @@ async function esportsFetch(path, params = {}) {
       url.searchParams.set(k, v);
     }
   }
+  return url.toString();
+}
+const lastFetchOkAt = new Map();
+async function esportsFetch(path, params = {}) {
+  const url = esportsUrl(path, params);
   const res = await fetch(url, { headers: { "x-api-key": ESPORTS_API_KEY } });
   if (!res.ok) throw new Error(`Esports API error (${res.status})`);
-  return res.json();
+  const data = await res.json();
+  lastFetchOkAt.set(url, Date.now());
+  return data;
+}
+function fetchedAt(path, params) {
+  return lastFetchOkAt.get(esportsUrl(path, params)) || null;
+}
+function scheduleFetchedAt(leagueIds) {
+  return leagueIds.map((leagueId) => fetchedAt("/getSchedule", { leagueId }));
+}
+function freshnessText(times) {
+  const known = times.filter(Boolean);
+  if (!known.length) return "";
+  const tz = getActiveTimeZone();
+  const at = new Date(Math.min(...known)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: tz || undefined });
+  return `Data as of ${at}, source: Riot esports API`;
+}
+function setFreshness(el, times) {
+  if (el) el.textContent = freshnessText(times);
 }
 
 function backfillLeagueId(l) {
@@ -1864,10 +1887,20 @@ if (tabContentEl) {
 }
 function loadActiveTab(silent = false) {
   syncNav();
-  if (homeView === "tournaments") loadTournamentsTab(silent);
-  else if (homeStatus === "live") loadLiveTab(silent);
-  else if (homeStatus === "today") loadTodayTab(silent);
-  else loadScheduleTab(EVENT_STATE[homeStatus], silent);
+  const load =
+    homeView === "tournaments"
+      ? loadTournamentsTab(silent)
+      : homeStatus === "live"
+      ? loadLiveTab(silent)
+      : homeStatus === "today"
+      ? loadTodayTab(silent)
+      : loadScheduleTab(EVENT_STATE[homeStatus], silent);
+  Promise.resolve(load).then(updateHomeFreshness);
+}
+function updateHomeFreshness() {
+  const times = homeView === "tournaments" ? [] : scheduleFetchedAt(effectiveLeagueIds());
+  if (homeView !== "tournaments" && homeStatus === "live") times.push(fetchedAt("/getLive"));
+  setFreshness(document.getElementById("home-freshness"), times);
 }
 const EXCLUDED_LOCALES = ["ar-ae"];
 function localeRank(locale) {
@@ -2751,6 +2784,9 @@ async function renderMatchPage(eventId) {
     }
   }, 30 * 1000);
 }
+function updateMatchFreshness(eventId, league) {
+  setFreshness(matchMainEl.querySelector("#match-freshness"), [fetchedAt("/getEventDetails", { id: eventId }), ...(league && league.id ? scheduleFetchedAt([league.id]) : [])]);
+}
 async function refreshMatchPage(eventId, event) {
   const token = matchPageToken;
   event = scheduleCache.find((e) => e.id === eventId) || event;
@@ -2761,6 +2797,7 @@ async function refreshMatchPage(eventId, event) {
     return;
   }
   if (token !== matchPageToken) return;
+  updateMatchFreshness(eventId, event && event.league);
   const newState = detail.state || (event ? event.state : "unstarted");
   if (newState !== matchPageStreamState) {
     await paintMatchPage(eventId, event);
@@ -2918,6 +2955,7 @@ async function paintMatchPage(eventId, event) {
           : modalHeaderInner
       }
     </div>
+    <p class="data-freshness" id="match-freshness"></p>
     <div class="match-teams modal-teams">${teams
       .map((t, idx) => {
         const star = t.code ? favoriteStarHtml(t.code, "match-team-star") : "";
@@ -2943,6 +2981,7 @@ async function paintMatchPage(eventId, event) {
   if (state === "inProgress" && liveStreamItems.length) wireStreamSection(matchMainEl, liveStreamItems, "live");
   if (state === "completed" && vods.length) wireStreamSection(matchMainEl, vods, "vod");
   if (state === "inProgress") loadCostreamStatuses(matchMainEl, true, teams);
+  updateMatchFreshness(eventId, league);
   if (state === "unstarted" && startTime) startMatchPageCountdown(startTime);
   else stopMatchPageCountdown();
   if (state === "inProgress") {
@@ -3694,6 +3733,9 @@ function tournamentSwitcherHtml(leagueId, tournaments, league, currentTournament
   return `<div class="tournament-switcher">${items.join("")}</div>`;
 }
 let tournamentPageToken = 0;
+function updateTournamentFreshness(leagueId, tournamentId) {
+  setFreshness(tournamentMainEl.querySelector("#tournament-freshness"), [fetchedAt("/getStandings", { tournamentId }), fetchedAt("/getStandingsV3", { tournamentId }), ...scheduleFetchedAt([leagueId])]);
+}
 async function renderTournamentPage(leagueId, tournamentId) {
   const token = ++tournamentPageToken;
   stopMatchPagePolling();
@@ -3739,10 +3781,12 @@ async function renderTournamentPage(leagueId, tournamentId) {
         <div class="modal-state">${tournamentDateRangeLabel(tournament, leagueId)}</div>
       </div>
     </div>
+    <p class="data-freshness" id="tournament-freshness"></p>
     ${switcherHtml}
     <div id="tournament-content-slot">${contentHtml}</div>
   `;
   wirePagination(tournamentMainEl);
+  updateTournamentFreshness(leagueId, tournament.id);
 
   tournamentPagePollTimer = setInterval(async () => {
     const r = getRoute();
@@ -3757,6 +3801,7 @@ async function renderTournamentPage(leagueId, tournamentId) {
       if (token !== tournamentPageToken) return;
       slot.innerHTML = html;
       wirePagination(tournamentMainEl);
+      updateTournamentFreshness(leagueId, tournament.id);
     } catch {
     }
   }, 30 * 1000);
@@ -3833,6 +3878,7 @@ async function renderTeamPage(teamCode) {
         ${socialLinks}
       </div>
     </div>
+    <p class="data-freshness" id="team-freshness"></p>
     <h3>Win Rate <span class="hint">(last ${winRate ? winRate.games : 0} completed games)</span></h3>
     ${
       winRate
@@ -3848,6 +3894,8 @@ async function renderTeamPage(teamCode) {
     <a class="watch-link" href="${liquipediaSearchUrl}" target="_blank" rel="noopener">Full team page on Liquipedia ↗</a>
   `;
   wirePagination(teamMainEl);
+  const teamLeagueIds = [...new Set(scheduleCache.filter((e) => e.league && e.league.id && e.teams.some((t) => t.code === teamCode)).map((e) => e.league.id))];
+  setFreshness(teamMainEl.querySelector("#team-freshness"), scheduleFetchedAt(teamLeagueIds));
 }
 function showFatalErrorBanner() {
   const el = document.getElementById("fatal-error-banner");
