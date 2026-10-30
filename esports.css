@@ -439,7 +439,8 @@ a.team-card:hover {
   gap: 6px;
   margin-top: 6px;
 }
-.locale-btn {
+.locale-btn,
+.locale-more-btn {
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--muted);
@@ -447,6 +448,30 @@ a.team-card:hover {
   padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
+}
+.locale-more-btn {
+  border-style: dashed;
+}
+.locale-more {
+  display: contents;
+}
+.game-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.game-strip-item {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.game-strip-item.inProgress {
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
 }
 .locale-btn.active {
   background: var(--gold);

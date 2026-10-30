@@ -1,12 +1,12 @@
 
 
-const CACHE_NAME = "lolgg-shell-v70";
+const CACHE_NAME = "lolgg-shell-v71";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./esports.css",
-  "./app.js?v=20261030a",
+  "./app.js?v=20261030b",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
