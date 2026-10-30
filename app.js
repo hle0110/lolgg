@@ -1598,8 +1598,11 @@ function disableFavoriteNotifications() {
 }
 let notifiedLiveEventIds = new Set();
 let favoriteNotifyBaselineSeeded = false;
+function favoriteNotificationsOn() {
+  return notificationsSupported() && Notification.permission === "granted" && getNotifyPreference();
+}
 function checkFavoriteTeamLiveNotifications() {
-  if (!notificationsSupported() || Notification.permission !== "granted" || !getNotifyPreference()) return;
+  if (!favoriteNotificationsOn()) return;
   const favorites = getFavoriteTeams();
   if (!favorites.length) return;
   const liveFavoriteEvents = scheduleCache.filter((e) => e.state === "inProgress" && eventInvolvesFavoriteTeam(e));
@@ -2704,6 +2707,7 @@ function startLiveStatsPolling(eventId, gameId, hintStartTime, teams) {
       liveStatsPollTimer = null;
       return;
     }
+    if (document.hidden) return;
     const slot = matchMainEl.querySelector("#live-stats-slot");
     if (!slot) return;
     try {
@@ -3992,14 +3996,17 @@ async function init() {
   await checkEarlyLiveMatches();
   checkFavoriteTeamLiveNotifications();
   route();
-
-  setInterval(async () => {
-    await getSchedule(effectiveLeagueIds());
-    await checkEarlyLiveMatches();
-    checkFavoriteTeamLiveNotifications();
-    const r = getRoute();
-
-    if (r.view === "home") loadActiveTab(true);
+  setInterval(() => {
+    if (!document.hidden || favoriteNotificationsOn()) backgroundRefresh();
   }, 20 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) backgroundRefresh();
+  });
+}
+async function backgroundRefresh() {
+  await getSchedule(effectiveLeagueIds());
+  await checkEarlyLiveMatches();
+  checkFavoriteTeamLiveNotifications();
+  if (!document.hidden && getRoute().view === "home") loadActiveTab(true);
 }
 init().catch(() => showFatalErrorBanner());
