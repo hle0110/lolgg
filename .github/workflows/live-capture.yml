@@ -1,0 +1,26 @@
+name: live capture
+on:
+  schedule:
+    - cron: "*/10 19-23 30 10 *"
+    - cron: "*/10 0-3 31 10 *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: live-capture
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture if a series is under way
+        id: cap
+        run: python3 .github/live_capture.py capture
+      - uses: actions/upload-artifact@v4
+        if: steps.cap.outputs.captured == 'true'
+        with:
+          name: worlds-live-${{ github.run_id }}
+          path: capture/*.json
+          retention-days: 30
