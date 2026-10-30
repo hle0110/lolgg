@@ -2045,14 +2045,19 @@ function streamSectionHtml(items, kind) {
   }
   const first = items[0];
   const firstWatchUrl = watchUrlFor(first, kind);
+  const buttons = items.map(
+    (s, idx) => `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerDisplayName(s.provider)} (${escapeHtml(s.locale)})</button>`
+  );
+  const isEnglish = (s) => (s.locale || "").toLowerCase().startsWith("en");
+  const collapse = kind === "live" && items.some(isEnglish) && !items.every(isEnglish);
+  const moreButtons = collapse ? buttons.filter((b, idx) => !isEnglish(items[idx])) : [];
   const localeButtons =
     items.length > 1
-      ? `<div class="locale-switch">${items
-          .map(
-            (s, idx) =>
-              `<button class="locale-btn ${idx === 0 ? "active" : ""}" data-idx="${idx}" data-kind="${kind}">${providerDisplayName(s.provider)} (${escapeHtml(s.locale)})</button>`
-          )
-          .join("")}</div>`
+      ? `<div class="locale-switch">${collapse ? buttons.filter((b, idx) => isEnglish(items[idx])).join("") : buttons.join("")}${
+          moreButtons.length
+            ? `<button type="button" class="locale-more-btn" aria-expanded="false">More languages (${moreButtons.length})</button><div class="locale-more hidden">${moreButtons.join("")}</div>`
+            : ""
+        }</div>`
       : "";
   const providerLabel = providerDisplayName(first.provider);
   return `
@@ -2483,6 +2488,15 @@ function baronBadgeHtml(count) {
   const icon = objectiveIconHtml("https://raw.communitydragon.org/latest/game/assets/hud/icons2d/scoreboard_baron.png", "Baron", "Baron");
   return `<span class="obj-badge-row">${icon}<span class="obj-badge-count">${count}</span></span>`;
 }
+document.addEventListener("click", (ev) => {
+  const btn = ev.target.closest ? ev.target.closest(".locale-more-btn") : null;
+  if (!btn) return;
+  const more = btn.nextElementSibling;
+  const open = btn.getAttribute("aria-expanded") !== "true";
+  btn.setAttribute("aria-expanded", String(open));
+  more.classList.toggle("hidden", !open);
+  btn.textContent = open ? "Fewer languages" : `More languages (${more.children.length})`;
+});
 function liveStatsHtml(stats, teams) {
   if (!stats || (!stats.blueTeam && !stats.redTeam)) {
     return `<p class="idle">Live stats will appear once the game is running.</p>`;
@@ -2530,6 +2544,7 @@ function liveStatsHtml(stats, teams) {
 
   return `
     ${patchHtml ? `<div class="livestats-clock">${patchHtml}</div>` : ""}
+    <p class="hint stats-delay">Stats run about 90 seconds behind the broadcast.</p>
     <div class="livestats-panel">
       ${row("Gold", typeof b.totalGold === "number" ? b.totalGold.toLocaleString() : b.totalGold, typeof r.totalGold === "number" ? r.totalGold.toLocaleString() : r.totalGold)}
       ${row("Kills", b.totalKills, r.totalKills)}
@@ -2788,6 +2803,21 @@ async function renderMatchPage(eventId) {
     }
   }, 30 * 1000);
 }
+const GAME_STATE_LABELS = { completed: "done", inProgress: "live", unstarted: "not started", unneeded: "not needed" };
+function paintSeriesStatus(games, teams) {
+  const stateEl = matchMainEl.querySelector("#match-live-state");
+  const stripEl = matchMainEl.querySelector("#game-strip-slot");
+  const list = games || [];
+  const live = list.find((g) => g.state === "inProgress");
+  const [a, b] = teams || [];
+  const score = a && b ? ` · ${escapeHtml(a.code || a.name)} ${a.gameWins || 0}-${b.gameWins || 0} ${escapeHtml(b.code || b.name)}` : "";
+  if (stateEl) stateEl.innerHTML = live ? `Game ${escapeHtml(live.number)} live${score}` : "Live";
+  if (stripEl) {
+    stripEl.innerHTML = live
+      ? `<div class="game-strip">${list.map((g) => `<span class="game-strip-item ${escapeHtml(g.state)}">Game ${escapeHtml(g.number)} ${GAME_STATE_LABELS[g.state] || escapeHtml(g.state)}</span>`).join("")}</div>`
+      : "";
+  }
+}
 function updateMatchFreshness(eventId, league) {
   setFreshness(matchMainEl.querySelector("#match-freshness"), [fetchedAt("/getEventDetails", { id: eventId }), ...(league && league.id ? scheduleFetchedAt([league.id]) : [])]);
 }
@@ -2808,6 +2838,7 @@ async function refreshMatchPage(eventId, event) {
     return;
   }
   if (newState === "inProgress") {
+    paintSeriesStatus(detail.games, detail.teams && detail.teams.length === 2 ? detail.teams : event ? event.teams : []);
     const liveGame = pickCurrentLiveGame(detail.games);
     const slot = matchMainEl.querySelector("#live-stats-slot");
     if (slot) {
@@ -2945,7 +2976,7 @@ async function paintMatchPage(eventId, event) {
       ${leagueLogoHtml(league, "modal-league-logo")}
       <div>
         <div class="modal-league">${escapeHtml(league?.name || "")}${event?.blockName ? ` · ${escapeHtml(event.blockName)}` : ""}</div>
-        <div class="modal-state">${state === "inProgress" ? "Live" : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
+        <div class="modal-state">${state === "inProgress" ? `<span id="match-live-state">Live</span>` : state === "completed" ? "Final" : startTime ? localTimeLabel(startTime) : ""}${event?.bestOf ? ` · Bo${event.bestOf}` : ""}</div>
       </div>`;
   if (token !== matchPageToken) return;
   const titleTeams = teams.filter((t) => !isTbdPlaceholderTeam(t)).map((t) => t.code || t.name);
@@ -2968,6 +2999,7 @@ async function paintMatchPage(eventId, event) {
         return t.code ? `<a class="team-link" href="#/team/${encodeURIComponent(t.code)}">${inner}</a>` : info;
       })
       .join('<div class="vs">vs</div>')}</div>
+    ${state === "inProgress" ? `<div id="game-strip-slot"></div>` : ""}
     ${streamBlockHtml}
     ${
       state === "inProgress"
@@ -2986,6 +3018,7 @@ async function paintMatchPage(eventId, event) {
   if (state === "completed" && vods.length) wireStreamSection(matchMainEl, vods, "vod");
   if (state === "inProgress") loadCostreamStatuses(matchMainEl, true, teams);
   updateMatchFreshness(eventId, league);
+  paintSeriesStatus(detail.games, detail.teams && detail.teams.length === 2 ? detail.teams : teams);
   if (state === "unstarted" && startTime) startMatchPageCountdown(startTime);
   else stopMatchPageCountdown();
   if (state === "inProgress") {
