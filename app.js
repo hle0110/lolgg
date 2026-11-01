@@ -1059,6 +1059,7 @@ async function getLiveStats(gameId) {
     const latest = frames[frames.length - 1];
     return {
       timestamp: latest.rfc460Timestamp || null,
+      gameState: latest.gameState || null,
       blueTeam: latest.blueTeam || null,
       redTeam: latest.redTeam || null,
       gameMetadata,
@@ -1071,6 +1072,7 @@ async function getLiveStats(gameId) {
   if (!latestDetail.blueTeam && !latestDetail.redTeam) return null;
   return {
     timestamp: latestDetail.rfc460Timestamp || null,
+    gameState: latestDetail.gameState || null,
     blueTeam: latestDetail.blueTeam || null,
     redTeam: latestDetail.redTeam || null,
     gameMetadata,
@@ -2544,7 +2546,7 @@ function liveStatsHtml(stats, teams) {
 
   return `
     ${patchHtml ? `<div class="livestats-clock">${patchHtml}</div>` : ""}
-    <p class="hint stats-delay">Stats run about 90 seconds behind the broadcast.</p>
+    <p class="hint stats-delay">${stats.gameState === "finished" ? "This game has ended. Waiting for Riot to post the result." : "Stats run about 90 seconds behind the broadcast."}</p>
     <div class="livestats-panel">
       ${row("Gold", typeof b.totalGold === "number" ? b.totalGold.toLocaleString() : b.totalGold, typeof r.totalGold === "number" ? r.totalGold.toLocaleString() : r.totalGold)}
       ${row("Kills", b.totalKills, r.totalKills)}
