@@ -1900,7 +1900,23 @@ function loadActiveTab(silent = false) {
       : homeStatus === "today"
       ? loadTodayTab(silent)
       : loadScheduleTab(EVENT_STATE[homeStatus], silent);
-  Promise.resolve(load).then(updateHomeFreshness);
+  Promise.resolve(load).then(() => {
+    updateHomeFreshness();
+    updateChampionBanner();
+  });
+}
+const CHAMPION_BANNER_MS = 30 * 24 * 60 * 60 * 1000;
+function updateChampionBanner() {
+  const el = document.getElementById("champion-banner");
+  if (!el) return;
+  const final = scheduleCache
+    .filter((e) => e.state === "completed" && e.blockName === "Finals" && isWorldsLeague(e.league) && Date.now() - new Date(e.startTime).getTime() < CHAMPION_BANNER_MS)
+    .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))[0];
+  const winner = final && final.teams.find((t) => t.outcome === "win");
+  el.classList.toggle("hidden", !winner);
+  el.innerHTML = winner
+    ? `<a class="champion-banner-link" href="#/tournament/${encodeURIComponent(final.league.id)}">${teamLogoHtml(winner)}<span>Your Worlds ${new Date(final.startTime).getUTCFullYear()} winner is ${escapeHtml(winner.code || winner.name)}</span></a>`
+    : "";
 }
 function updateHomeFreshness() {
   const times = homeView === "tournaments" ? [] : scheduleFetchedAt(effectiveLeagueIds());
