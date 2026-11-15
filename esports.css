@@ -281,6 +281,36 @@ a.team-card:hover {
   margin: 0 auto;
   padding: 0 20px 60px;
 }
+.champion-banner {
+  max-width: 1100px;
+  margin: 12px auto 0;
+  padding: 0 20px;
+}
+.champion-banner-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: var(--tint-weak);
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.champion-banner-link:hover {
+  background: var(--tint-strong);
+}
+.champion-banner-link img,
+.champion-banner-link .team-avatar-fallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
 .data-freshness {
   color: var(--muted);
   font-size: 11px;
